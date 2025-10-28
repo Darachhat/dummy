@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+.venv/
+.env
+
+# Node / Nuxt
+node_modules/
+.nitro/
+.output/
+*.log
+.env.local
+.env.development
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
