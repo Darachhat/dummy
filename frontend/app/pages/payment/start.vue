@@ -1,11 +1,11 @@
 <template>
   <div class="min-h-screen bg-gray-100 flex flex-col items-center py-8">
     <!-- Header -->
-    <div class="flex gap-3 items-center w-full max-w-md px-4 mb-6">
+    <div class="flex gap-6 items-center w-full max-w-md mb-6">
       <button @click="navigateTo('/')" class="p-2 bg-white rounded-full shadow">
         <ArrowLeft class="w-5 h-5 text-gray-600" />
       </button>
-      <h2 class="text-lg font-semibold text-gray-700">Bill Payment</h2>
+      <h2 class="text-lg font-semibold mx-3 px-24 text-gray-700">Bill Payment</h2>
     
     </div>
 

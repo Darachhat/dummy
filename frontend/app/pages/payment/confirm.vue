@@ -1,14 +1,14 @@
 <template>
   <div class="min-h-screen bg-gray-100 flex flex-col items-center py-10">
     <!-- Header -->
-    <div class="flex items-center w-full max-w-md px-4 mb-6">
+    <div class="flex items-center w-full max-w-md mb-6">
       <button
         @click="navigateTo('/payment/invoice')"
         class="p-2 bg-white rounded-full shadow hover:bg-gray-50"
       >
         <ArrowLeft class="w-5 h-5 text-gray-600" />
       </button>
-      <h2 class="text-lg font-semibold text-gray-700 mx-auto">Confirmation</h2>
+      <h2 class="text-lg mx-24 px-10 font-semibold text-gray-700">Confirmation</h2>
     </div>
 
     <!-- Confirmation Card -->
@@ -33,7 +33,13 @@
       <div class="text-left text-sm space-y-1">
         <div class="flex justify-between">
           <span class="text-gray-500">From Account</span>
-          <span class="font-medium text-gray-800">{{ payment?.account_number || '00000000' }}</span>
+          <span class="font-medium text-gray-800">
+  {{ payment?.from_account?.number || '00000000' }}
+  <span v-if="payment?.from_account?.name" class="text-gray-500 text-xs">
+    — {{ payment.from_account.name }}
+  </span>
+</span>
+
         </div>
 
         <div class="flex justify-between">
@@ -131,10 +137,16 @@ const handleBackspace = (index: number, e: KeyboardEvent) => {
 const confirmPayment = async () => {
   try {
     const code = pin.value.join('')
-    await $api(`/payments/${payment.value.id}/confirm?pin=${code}`, { method: 'POST' })
+    const res = await $api(`/payments/${payment.value.id}/confirm?pin=${code}`, { method: 'POST' })
+    const p = useState('payment')
+    p.value = {
+      ...p.value,
+      ...res 
+    }
     navigateTo('/payment/success')
   } catch {
     error.value = 'Invalid PIN. Please try again.'
   }
 }
+
 </script>

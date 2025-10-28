@@ -11,12 +11,13 @@ export const useAuth = () => {
     $token.value = res.access_token
     me.value = await $api('/me')
   }
+const logout = () => {
+  $token.value = null
+  localStorage.removeItem('token')
+  me.value = null
+  navigateTo('/login')
+}
 
-  const logout = () => {
-    $token.value = null
-    me.value = null
-    navigateTo('/login')
-  }
 
   const fetchMe = async () => {
     try {
