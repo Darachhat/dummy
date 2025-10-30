@@ -104,6 +104,10 @@
   </div>
 </template>
   <script setup lang="ts">
+  onMounted(() => {
+  if (!payment.value?.id) navigateTo('/payment/invoice')
+})
+
 const { $api } = useNuxtApp()
 const payment = useState<any>('payment')
 const pin = ref<string[]>(['', '', '', ''])
@@ -145,13 +149,11 @@ const confirmPayment = async () => {
       status: 'confirmed',
       response_msg: res.response_msg
     }
-
     navigateTo('/payment/success')
-  } catch (err) {
+  } catch (err:any) {
     console.error(err)
-    error.value = 'Invalid PIN or insufficient funds.'
+    error.value = err.response?._data?.response_msg || 'Invalid PIN or insufficient funds.'
   }
 }
-
 
 </script>

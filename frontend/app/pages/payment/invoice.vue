@@ -171,21 +171,23 @@ const submitPayment = async () => {
     const acc = accounts.value.find(a => a.id === Number(selectedAccountId.value))
 
     const payment = useState('payment')
-    payment.value = {
-      id: res.payment_id,
-      reference_number: res.reference_number,
-      customer_name: res.customer_name,
-      amount_cents: res.amount_cents ?? res.amount,
-      fee_cents: res.fee_cents || 0,
-      total_amount_cents: res.total_amount_cents ?? ((res.amount_cents ?? res.amount) + (res.fee_cents || 0)),
-      service: paymentSelection.value.service,
-      from_account: {
-        id: acc?.id || selectedAccountId.value,
-        number: acc?.number || '',
-        name: acc?.name || '',
-        balance_cents: acc?.balance_cents || 0
-      }
-    }
+   payment.value = {
+  id: res.payment_id,
+  reference_number: res.reference_number,
+  customer_name: res.customer_name,
+  amount_cents: res.amount ?? res.amount_cents,
+  fee_cents: res.fee_cents ?? 0,
+  total_amount_cents: res.total_amount_cents ??
+    ((res.amount ?? res.amount_cents) + (res.fee_cents ?? 0)),
+  currency: res.currency || 'USD',
+  service: paymentSelection.value.service,
+  from_account: {
+    id: acc?.id || selectedAccountId.value,
+    number: acc?.number || '',
+    name: acc?.name || '',
+    balance_cents: acc?.balance_cents || 0,
+  }
+}
 
     navigateTo('/payment/confirm')
   } catch (err) {
