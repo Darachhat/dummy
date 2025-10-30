@@ -82,7 +82,8 @@
 
 <script setup lang="ts">
 const payment = useState<any>('payment')
-const BACKEND_URL = 'http://127.0.0.1:8000'
+const config = useRuntimeConfig()
+const BACKEND_URL = config.public.apiBase
 
 const getLogoUrl = (path: string) => {
   if (!path) return `${BACKEND_URL}/static/logos/default.png`

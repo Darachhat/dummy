@@ -77,7 +77,9 @@
 const { $api } = useNuxtApp()
 const route = useRoute()
 const tx = ref<any>(null)
-const BACKEND_URL = 'http://127.0.0.1:8000'
+const config = useRuntimeConfig()
+const BACKEND_URL = config.public.apiBase
+
 
 onMounted(async () => {
   try {

@@ -1,23 +1,26 @@
-// frontend/composables/useAuth.ts
 export const useAuth = () => {
   const { $api, $token } = useNuxtApp()
   const me = useState<any>('me', () => null)
 
   const login = async (phone: string, password: string) => {
-    const res: any = await $api('/auth/login', {
-      method: 'POST',
-      body: { phone, password }
-    })
-    $token.value = res.access_token
-    me.value = await $api('/me')
+    try {
+      const res: any = await $api('/auth/login', {
+        method: 'POST',
+        body: { phone, password }
+      })
+      $token.value = res.access_token
+      await fetchMe()
+    } catch (err) {
+      throw new Error('Invalid credentials')
+    }
   }
-const logout = () => {
-  $token.value = null
-  localStorage.removeItem('token')
-  me.value = null
-  navigateTo('/login')
-}
 
+  const logout = () => {
+    $token.value = null
+    localStorage.removeItem('token')
+    me.value = null
+    navigateTo('/login')
+  }
 
   const fetchMe = async () => {
     try {
@@ -27,5 +30,7 @@ const logout = () => {
     }
   }
 
-  return { me, login, logout, fetchMe }
+  const isLoggedIn = computed(() => !!$token.value)
+
+  return { me, login, logout, fetchMe, isLoggedIn }
 }

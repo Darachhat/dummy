@@ -8,14 +8,20 @@ from auth import router as auth_router
 from deps import get_user_id
 from services.invoices import mock_lookup
 from fastapi.staticfiles import StaticFiles
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-app = FastAPI(title="Dummy Bank Backend")
+app = FastAPI(title=os.getenv("APP_TITLE", "Dummy Bank"))
 app.include_router(auth_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+   allow_origins=[
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

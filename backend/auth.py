@@ -5,10 +5,13 @@ from db import SessionLocal
 from models import User
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-SECRET = "Keep_this_secret"
-ALGO = "HS256"
-ACCESS_MIN = 60 * 24
+SECRET = os.getenv("JWT_SECRET", "Keep_this_secret")
+ALGO = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_MIN = int(os.getenv("JWT_ACCESS_MINUTES", "1440"))
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

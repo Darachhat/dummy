@@ -147,7 +147,9 @@ const success = ref('')
 const showTransfer = ref(false)
 const toAccountId = ref('')
 const amount = ref<number | null>(null)
-const BACKEND_URL = 'http://127.0.0.1:8000'
+const config = useRuntimeConfig()
+const BACKEND_URL = config.public.apiBase
+
 
 // Load account + transactions
 onMounted(async () => {

@@ -57,7 +57,9 @@
 <script setup lang="ts">
 const { $api } = useNuxtApp()
 const transactions = ref<any[]>([])
-const BACKEND_URL = 'http://127.0.0.1:8000'
+const config = useRuntimeConfig()
+const BACKEND_URL = config.public.apiBase
+
 
 onMounted(async () => {
   try {

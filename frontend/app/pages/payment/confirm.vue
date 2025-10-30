@@ -110,7 +110,8 @@ const pin = ref<string[]>(['', '', '', ''])
 const pinInputs = ref<HTMLInputElement[]>([])
 const error = ref('')
 
-const BACKEND_URL = 'http://127.0.0.1:8000'
+const config = useRuntimeConfig()
+const BACKEND_URL = config.public.apiBase
 
 const getLogoUrl = (path: string) => {
   if (!path) return `${BACKEND_URL}/static/logos/default.png`

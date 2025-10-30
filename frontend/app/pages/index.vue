@@ -147,7 +147,9 @@ const { logout } = useAuth()
 const balance = ref(0)
 const accountNumber = ref('')
 const transactions = ref<any[]>([])
-const BACKEND_URL = 'http://127.0.0.1:8000'
+const config = useRuntimeConfig()
+const BACKEND_URL = config.public.apiBase
+
 
 // Load dashboard data
 onMounted(async () => {
