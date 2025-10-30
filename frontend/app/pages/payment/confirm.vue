@@ -134,20 +134,24 @@ const handleBackspace = (index: number, e: KeyboardEvent) => {
   const target = e.target as HTMLInputElement
   if (!target.value && index > 0) pinInputs.value[index - 1]?.focus()
 }
-
 const confirmPayment = async () => {
   try {
     const code = pin.value.join('')
     const res = await $api(`/payments/${payment.value.id}/confirm?pin=${code}`, { method: 'POST' })
-    const p = useState('payment')
-    p.value = {
-      ...p.value,
-      ...res 
+    payment.value = {
+      ...payment.value,
+      transaction_id: res.transaction_id,
+      acknowledgement_id: res.acknowledgement_id,
+      status: 'confirmed',
+      response_msg: res.response_msg
     }
+
     navigateTo('/payment/success')
-  } catch {
-    error.value = 'Invalid PIN. Please try again.'
+  } catch (err) {
+    console.error(err)
+    error.value = 'Invalid PIN or insufficient funds.'
   }
 }
+
 
 </script>

@@ -118,26 +118,6 @@
         No recent transactions
       </p>
     </div>
-
-    <!-- Bottom Nav -->
-    <div class="fixed bottom-0 left-0 right-0 bg-white shadow flex justify-around py-3 rounded-t-2xl">
-      <NuxtLink to="/" class="flex flex-col items-center text-black">
-        <Home class="w-5 h-5" />
-        <span class="text-xs">Home</span>
-      </NuxtLink>
-      <NuxtLink to="/payment/start" class="flex flex-col items-center text-gray-500">
-        <ArrowUpRight class="w-5 h-5" />
-        <span class="text-xs">Payment</span>
-      </NuxtLink>
-      <NuxtLink to="/transactions" class="flex flex-col items-center text-gray-500">
-        <List class="w-5 h-5" />
-        <span class="text-xs">History</span>
-      </NuxtLink>
-      <NuxtLink to="/accounts" class="flex flex-col items-center text-gray-500">
-        <User class="w-5 h-5" />
-        <span class="text-xs">Accounts</span>
-      </NuxtLink>
-    </div>
   </div>
 </template>
 

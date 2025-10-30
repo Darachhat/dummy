@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center text-center px-6 py-10">
    <div class="bg-white rounded-2xl shadow w-full max-w-md mb-3">
        <!-- Logo + Check -->
-    <div class="flex  p-6 justify-center items-center space-x-3 mb-4">
+    <div class="flex p-6 justify-center items-center space-x-3">
       <img
         v-if="payment?.service?.logo_url"
         :src="getLogoUrl(payment.service.logo_url)"

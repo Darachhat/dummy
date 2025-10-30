@@ -27,7 +27,7 @@
       <div>
         <label class="block text-sm text-gray-600 mb-1">My Account</label>
         <select
-          v-model="selectedAccountId"
+          v-model.number="selectedAccountId"
           @change="updateAccountBalance"
           class="w-full border border-gray-300 rounded-lg px-3 py-2"
         >
@@ -43,7 +43,7 @@
 
         <!-- Account Balance Display -->
         <p v-if="accountBalance !== null" class="text-sm text-gray-500 mt-1">
-          Balance: {{ formatCurrency(accountBalance) }}
+          Balance: {{ formatCurrency(accountBalance, selectedCurrency) }}
         </p>
       </div>
 
@@ -52,7 +52,7 @@
         <label class="block text-sm text-gray-600 mb-1">CDC Ref. No.</label>
         <input
           v-model="reference"
-          @blur="lookupInvoice"
+          @input="lookupInvoice"
           type="text"
           placeholder="Enter Reference"
           class="w-full border border-gray-300 rounded-lg px-3 py-2"
@@ -97,50 +97,61 @@ const getLogoUrl = (path: string) => {
   return `${BACKEND_URL}${path}`
 }
 
-// State
+// --- State ---
 const paymentSelection = useState<any>('paymentSelection')
 const accounts = ref<any[]>([])
-const selectedAccountId = ref('')
+const selectedAccountId = ref<number | null>(null)
 const accountBalance = ref<number | null>(null)
+const selectedCurrency = ref('USD')
+
 const reference = ref('')
 const amount = ref<number | null>(null)
 const invoice = ref<any>(null)
 const error = ref('')
 
-// Computed amount display
-const amountDisplay = computed(() =>
-  amount.value !== null ? `$${(amount.value / 100).toFixed(2)}` : ''
-)
+// --- Computed display ---
+const amountDisplay = computed(() => {
+  if (amount.value === null || !invoice.value) return ''
+  const currency = invoice.value.currency || 'USD'
+  return formatCurrency(amount.value, currency)
+})
 
-// Fetch accounts
+// --- Fetch accounts ---
 onMounted(async () => {
   try {
     const me = await $api('/me')
     accounts.value = me.accounts
+    if (accounts.value.length > 0) {
+      selectedAccountId.value = accounts.value[0].id
+      updateAccountBalance()
+    }
   } catch (err) {
     console.error('Failed to load accounts', err)
   }
 })
 
-// Update displayed account balance when dropdown changes
+// --- Update balance ---
 const updateAccountBalance = () => {
-  const acc = accounts.value.find(a => a.id === selectedAccountId.value)
+  const acc = accounts.value.find(a => a.id === Number(selectedAccountId.value))
   accountBalance.value = acc ? acc.balance_cents : null
+  selectedCurrency.value = acc ? acc.currency : 'USD'
 }
 
-// Format currency
-const formatCurrency = (cents: number | null) => {
+// --- Format currency ---
+const formatCurrency = (cents: number | null, currency = 'USD') => {
   if (cents === null) return '—'
-  return `$${(cents / 100).toLocaleString()}`
+  const val = (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })
+  return `${currency} ${val}`
 }
 
-// Lookup invoice
+// --- Lookup invoice 
 const lookupInvoice = async () => {
   if (!reference.value) return
   try {
     const res = await $api(`/payments/lookup?reference_number=${reference.value}`)
     invoice.value = res
-    amount.value = res.amount_cents
+    amount.value = res.amount_cents ?? res.amount ?? null
+
     error.value = ''
   } catch {
     invoice.value = null
@@ -149,7 +160,7 @@ const lookupInvoice = async () => {
   }
 }
 
-// Submit payment
+// --- Submit payment ---
 const submitPayment = async () => {
   try {
     const res = await $api(
@@ -157,15 +168,16 @@ const submitPayment = async () => {
       { method: 'POST' }
     )
 
-    const acc = accounts.value.find(a => a.id === selectedAccountId.value)
+    const acc = accounts.value.find(a => a.id === Number(selectedAccountId.value))
 
-    useState('payment', () => ({
+    const payment = useState('payment')
+    payment.value = {
       id: res.payment_id,
       reference_number: res.reference_number,
       customer_name: res.customer_name,
-      amount_cents: res.amount_cents,
-      fee_cents: res.fee_cents,
-      total_amount_cents: res.total_amount_cents,
+      amount_cents: res.amount_cents ?? res.amount,
+      fee_cents: res.fee_cents || 0,
+      total_amount_cents: res.total_amount_cents ?? ((res.amount_cents ?? res.amount) + (res.fee_cents || 0)),
       service: paymentSelection.value.service,
       from_account: {
         id: acc?.id || selectedAccountId.value,
@@ -173,7 +185,7 @@ const submitPayment = async () => {
         name: acc?.name || '',
         balance_cents: acc?.balance_cents || 0
       }
-    }))
+    }
 
     navigateTo('/payment/confirm')
   } catch (err) {
