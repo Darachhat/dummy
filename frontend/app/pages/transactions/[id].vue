@@ -114,7 +114,7 @@ onMounted(async () => {
 })
 
 const getLogoUrl = (path: string) => {
-  if (!path) return `${BACKEND_URL}/static/logos/default.png`
+  if (!path) return `${BACKEND_URL}/static/logos/default.svg`
   return path.startsWith('http') ? path : `${BACKEND_URL}${path}`
 }
 

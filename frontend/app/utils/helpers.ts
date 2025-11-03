@@ -1,5 +1,5 @@
 export const getLogoUrl = (path?: string, base?: string) => {
-  if (!path) return `${base}/static/logos/default.png`
+  if (!path) return `${base}/static/logos/default.svg`
   if (path.startsWith('http')) return path
   return `${base}${path}`
 }

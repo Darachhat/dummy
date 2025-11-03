@@ -84,7 +84,7 @@ const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
 
 const getLogoUrl = (path: string) => {
-  if (!path) return `${BACKEND_URL}/static/logos/default.png`
+  if (!path) return `${BACKEND_URL}/static/logos/default.svg`
   if (path.startsWith('http')) return path
   return `${BACKEND_URL}${path}`
 }
