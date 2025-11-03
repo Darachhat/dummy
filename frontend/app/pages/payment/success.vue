@@ -1,23 +1,22 @@
 <template>
   <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center text-center px-6 py-10">
-   <div class="bg-white rounded-2xl shadow w-full max-w-md mb-3">
-       <!-- Logo + Check -->
-    <div class="flex p-6 justify-center items-center space-x-3">
-      <img
-        v-if="payment?.service?.logo_url"
-        :src="getLogoUrl(payment.service.logo_url)"
-        alt="Service Logo"
-        class="w-14 h-14 rounded-full object-contain"
-      />
-      <Check class="w-14 h-14 text-green-600" />
+    <!-- Success Card -->
+    <div class="bg-white rounded-2xl shadow w-full max-w-md mb-3">
+      <div class="flex p-6 justify-center items-center space-x-3">
+        <img
+          v-if="payment?.service?.logo_url"
+          :src="getLogoUrl(payment.service.logo_url)"
+          alt="Service Logo"
+          class="w-14 h-14 rounded-full object-contain"
+        />
+        <Check class="w-14 h-14 text-green-600" />
+      </div>
+
+      <h1 class="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h1>
+      <p class="text-gray-600 mb-6">Your payment was processed successfully.</p>
     </div>
 
-    <!-- Success Heading -->
-    <h1 class="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h1>
-    <p class="text-gray-600 mb-6">Your payment was processed successfully.</p>
-
-   </div>
-    <!-- Bill Details Card -->
+    <!-- Bill Details -->
     <div class="bg-white shadow rounded-2xl p-6 w-full max-w-md text-left space-y-1">
       <h3 class="text-lg font-semibold text-gray-700 mb-3">
         Bill to {{ payment?.service?.name || 'Service' }}
@@ -40,26 +39,25 @@
 
       <div class="flex justify-between">
         <span class="text-gray-500">Amount</span>
-        <span class="font-medium text-gray-800">{{ formatCurrency(payment?.amount_cents) }}</span>
+        <span class="font-medium text-gray-800">{{ formatCurrency(payment?.amount) }}</span>
       </div>
 
       <div class="flex justify-between">
         <span class="text-gray-500">Fee</span>
-        <span class="font-medium text-gray-800">{{ formatCurrency(payment?.fee_cents) }}</span>
+        <span class="font-medium text-gray-800">{{ formatCurrency(payment?.fee) }}</span>
       </div>
 
       <div class="border-t border-gray-200 my-3"></div>
 
       <div class="flex justify-between text-base font-semibold">
         <span>Total Amount</span>
-        <span>{{ formatCurrency(payment?.total_amount_cents || payment?.amount_cents) }}</span>
+        <span>{{ formatCurrency(payment?.total_amount) }}</span>
       </div>
 
       <div class="flex justify-between text-sm mt-2">
-  <span class="text-gray-500">Bank TID</span>
-  <span class="font-medium text-gray-800">{{ payment?.transaction_id || '—' }}</span>
-</div>
-
+        <span class="text-gray-500">Bank TID</span>
+        <span class="font-medium text-gray-800">{{ payment?.transaction_id || '—' }}</span>
+      </div>
     </div>
 
     <!-- Buttons -->
@@ -91,9 +89,11 @@ const getLogoUrl = (path: string) => {
   return `${BACKEND_URL}${path}`
 }
 
-const formatCurrency = (cents?: number | null) => {
-  if (!cents) return '—'
-  return `${(cents / 100).toLocaleString()} USD`
+// --- Format decimal currency ---
+const formatCurrency = (val?: number | string | null, currency = 'USD') => {
+  if (val === null || val === undefined) return '—'
+  const num = typeof val === 'string' ? parseFloat(val) : val
+  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 }
 
 const goHome = () => navigateTo('/')

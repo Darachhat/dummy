@@ -8,7 +8,9 @@
       >
         <ArrowLeft class="w-5 h-5 text-gray-600" />
       </button>
-      <h2 class="text-lg font-semibold text-gray-700 mx-auto">Transaction History</h2>
+      <h2 class="text-lg font-semibold text-gray-700 mx-24 px-4">
+        Transaction History
+      </h2>
     </div>
 
     <!-- Transaction List -->
@@ -22,6 +24,7 @@
         @click="goDetail(t.transaction_id)"
         class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition cursor-pointer"
       >
+        <!-- Left -->
         <div class="flex items-center space-x-3">
           <img
             v-if="t.service_logo_url"
@@ -30,12 +33,15 @@
             class="w-10 h-10 rounded-full object-contain"
           />
           <div>
-            <p class="text-sm font-semibold text-gray-800">{{ t.service_name || 'Transaction' }}</p>
+            <p class="text-sm font-semibold text-gray-800">
+              {{ t.service_name || 'Transaction' }}
+            </p>
             <p class="text-xs text-gray-500">Ref: {{ t.reference_number }}</p>
             <p class="text-xs text-gray-400">{{ formatDate(t.created_at) }}</p>
           </div>
         </div>
 
+        <!-- Right -->
         <div class="text-right">
           <p
             :class="[
@@ -43,14 +49,18 @@
               t.direction === 'debit' ? 'text-red-600' : 'text-green-600'
             ]"
           >
-            {{ t.direction === 'debit' ? '-' : '+' }}{{ formatCurrency(t.total_amount_cents || t.amount_cents) }}
+            {{ t.direction === 'debit' ? '-' : '+' }}
+            {{ formatCurrency(t.total_amount || t.amount) }}
           </p>
           <p class="text-xs text-gray-500">TID: {{ t.transaction_id }}</p>
         </div>
       </div>
     </div>
 
-    <div v-else class="text-gray-500 mt-10">No transactions yet.</div>
+    <!-- Empty State -->
+    <div v-else class="text-gray-500 mt-10">
+      No transactions yet.
+    </div>
   </div>
 </template>
 
@@ -59,7 +69,6 @@ const { $api } = useNuxtApp()
 const transactions = ref<any[]>([])
 const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
-
 
 onMounted(async () => {
   try {
@@ -77,9 +86,11 @@ const getLogoUrl = (path: string) => {
   return `${BACKEND_URL}${path}`
 }
 
-const formatCurrency = (cents?: number | null) => {
-  if (!cents) return '—'
-  return `${(cents / 100).toLocaleString()} USD`
+// ✅ Use Decimal-based amounts directly (no division)
+const formatCurrency = (amount?: number | string | null, currency = 'USD') => {
+  if (amount === null || amount === undefined) return '—'
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 }
 
 const formatDate = (iso?: string) => {

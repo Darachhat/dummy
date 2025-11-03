@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
+from decimal import Decimal
+from passlib.hash import bcrypt
 
 from core.config import settings
 from db.base import Base
 from db.session import engine, SessionLocal
-
 
 # Routers
 from api.routes import auth as auth_routes
@@ -15,17 +15,17 @@ from api.routes import payments as payments_routes
 from api.routes import transactions as transactions_routes
 from api.routes import services as services_routes
 
-
+# Models
 from models.user import User
 from models.account import Account
 from models.service import Service
-from passlib.hash import bcrypt
+from models.transaction import Transaction
+from models.payment import Payment
 
 
 app = FastAPI(title="Dummy Bank Backend (Refactored)")
 
-
-# CORS
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",")],
@@ -34,15 +34,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# Static files (logos)
+# --- Static files (logos) ---
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
-# DB init
+# --- DB Init ---
 Base.metadata.create_all(bind=engine)
 
-
+# --- Startup seeding ---
 @app.on_event("startup")
 def seed_data():
     """Seed a default user, accounts, and services (idempotent)."""
@@ -56,20 +54,20 @@ def seed_data():
                 pin_hash=bcrypt.hash("1234"),
             )
             db.add(user)
-            db.flush()  
+            db.flush()
 
         existing_accounts = {a.number for a in db.query(Account).filter_by(user_id=user.id).all()}
 
         default_accounts = [
-            {"name": "Main Wallet", "number": "168-168-168", "balance_cents": 1500_000, "currency": "USD"},
-            {"name": "Savings", "number": "369-369-369", "balance_cents": 5000_000, "currency": "USD"},
+            {"name": "Main Wallet", "number": "168-168-168", "balance": Decimal("15000.00"), "currency": "USD"},
+            {"name": "Savings", "number": "369-369-369", "balance": Decimal("50000.00"), "currency": "USD"},
         ]
 
         for acc in default_accounts:
             if acc["number"] not in existing_accounts:
                 db.add(Account(user_id=user.id, **acc))
 
-        # Create services only if not exist
+        # Seed default services
         existing_services = {s.code for s in db.query(Service).all()}
         default_services = [
             {"name": "CDC Public Service", "code": "cdc", "logo_url": "/static/logos/cdc.webp"},
@@ -87,8 +85,7 @@ def seed_data():
         db.close()
 
 
-
-# Routers
+# --- Routers ---
 app.include_router(auth_routes.router)
 app.include_router(accounts_routes.router)
 app.include_router(payments_routes.router)

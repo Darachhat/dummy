@@ -32,18 +32,14 @@
           class="w-full border border-gray-300 rounded-lg px-3 py-2"
         >
           <option disabled value="">Select account</option>
-          <option
-            v-for="a in accounts"
-            :key="a.id"
-            :value="a.id"
-          >
+          <option v-for="a in accounts" :key="a.id" :value="a.id">
             {{ a.number }} — {{ a.name }}
           </option>
         </select>
 
-        <!-- Account Balance Display -->
+        <!-- Balance -->
         <p v-if="accountBalance !== null" class="text-sm text-gray-500 mt-1">
-          Balance: {{ formatCurrency(accountBalance, selectedCurrency) }}
+          Balance: {{ formatCurrency(accountBalance) }}
         </p>
       </div>
 
@@ -52,7 +48,7 @@
         <label class="block text-sm text-gray-600 mb-1">CDC Ref. No.</label>
         <input
           v-model="reference"
-          @input="lookupInvoice"
+          @blur="lookupInvoice"
           type="text"
           placeholder="Enter Reference"
           class="w-full border border-gray-300 rounded-lg px-3 py-2"
@@ -73,14 +69,18 @@
       <!-- Pay Button -->
       <button
         type="submit"
-        :disabled="!invoice || !selectedAccountId"
+        :disabled="!invoice || !selectedAccountId || !hasSufficientBalance"
         class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
         @click="submitPayment"
       >
         PAY
       </button>
 
-      <!-- Error Message -->
+      <!-- Warnings -->
+      <p v-if="selectedAccountId && !hasSufficientBalance" class="text-red-600 text-sm text-center mt-2">
+        ⚠️ Insufficient balance in your selected account.
+      </p>
+
       <p v-if="error" class="text-red-600 text-sm text-center mt-2">{{ error }}</p>
     </div>
   </div>
@@ -93,8 +93,7 @@ const { $api } = useNuxtApp()
 
 const getLogoUrl = (path: string) => {
   if (!path) return `${BACKEND_URL}/static/logos/default.png`
-  if (path.startsWith('http')) return path
-  return `${BACKEND_URL}${path}`
+  return path.startsWith('http') ? path : `${BACKEND_URL}${path}`
 }
 
 // --- State ---
@@ -102,25 +101,24 @@ const paymentSelection = useState<any>('paymentSelection')
 const accounts = ref<any[]>([])
 const selectedAccountId = ref<number | null>(null)
 const accountBalance = ref<number | null>(null)
-const selectedCurrency = ref('USD')
 
 const reference = ref('')
 const amount = ref<number | null>(null)
 const invoice = ref<any>(null)
 const error = ref('')
+const fee = ref(10.0) // fixed fee in USD
 
-// --- Computed display ---
+// --- Computed ---
 const amountDisplay = computed(() => {
-  if (amount.value === null || !invoice.value) return ''
-  const currency = invoice.value.currency || 'USD'
-  return formatCurrency(amount.value, currency)
+  if (amount.value === null) return ''
+  return formatCurrency(amount.value)
 })
 
 // --- Fetch accounts ---
 onMounted(async () => {
   try {
     const me = await $api('/me')
-    accounts.value = me.accounts
+    accounts.value = me.accounts || []
     if (accounts.value.length > 0) {
       selectedAccountId.value = accounts.value[0].id
       updateAccountBalance()
@@ -133,34 +131,39 @@ onMounted(async () => {
 // --- Update balance ---
 const updateAccountBalance = () => {
   const acc = accounts.value.find(a => a.id === Number(selectedAccountId.value))
-  accountBalance.value = acc ? acc.balance_cents : null
-  selectedCurrency.value = acc ? acc.currency : 'USD'
+  accountBalance.value = acc ? acc.balance : null
 }
 
 // --- Format currency ---
-const formatCurrency = (cents: number | null, currency = 'USD') => {
-  if (cents === null) return '—'
-  const val = (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })
-  return `${currency} ${val}`
+const formatCurrency = (val: number | null, currency = 'USD') => {
+  if (!val) return '—'
+  return `${currency} ${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 }
 
-// --- Lookup invoice 
+// --- Lookup invoice ---
 const lookupInvoice = async () => {
   if (!reference.value) return
   try {
     const res = await $api(`/payments/lookup?reference_number=${reference.value}`)
     invoice.value = res
-    amount.value = res.amount_cents ?? res.amount ?? null
-
+    amount.value = Number(res.amount) || 0
     error.value = ''
-  } catch {
+  } catch (err) {
     invoice.value = null
     amount.value = null
     error.value = 'Invalid reference number.'
   }
 }
 
-// --- Submit payment ---
+// --- Balance check ---
+const hasSufficientBalance = computed(() => {
+  if (!selectedAccountId.value || amount.value === null) return true
+  const acc = accounts.value.find(a => a.id === Number(selectedAccountId.value))
+  if (!acc) return true
+  return acc.balance >= amount.value + fee.value
+})
+
+// --- Submit ---
 const submitPayment = async () => {
   try {
     const res = await $api(
@@ -171,23 +174,17 @@ const submitPayment = async () => {
     const acc = accounts.value.find(a => a.id === Number(selectedAccountId.value))
 
     const payment = useState('payment')
-   payment.value = {
-  id: res.payment_id,
-  reference_number: res.reference_number,
-  customer_name: res.customer_name,
-  amount_cents: res.amount ?? res.amount_cents,
-  fee_cents: res.fee_cents ?? 0,
-  total_amount_cents: res.total_amount_cents ??
-    ((res.amount ?? res.amount_cents) + (res.fee_cents ?? 0)),
-  currency: res.currency || 'USD',
-  service: paymentSelection.value.service,
-  from_account: {
-    id: acc?.id || selectedAccountId.value,
-    number: acc?.number || '',
-    name: acc?.name || '',
-    balance_cents: acc?.balance_cents || 0,
-  }
-}
+    payment.value = {
+      id: res.payment_id,
+      reference_number: res.reference_number,
+      customer_name: res.customer_name,
+      amount: res.amount,
+      fee: res.fee,
+      total_amount: res.total_amount,
+      currency: res.currency || 'USD',
+      service: paymentSelection.value.service,
+      from_account: acc
+    }
 
     navigateTo('/payment/confirm')
   } catch (err) {

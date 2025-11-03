@@ -22,24 +22,22 @@
         />
       </div>
 
-      <!-- Bill to -->
       <h3 class="text-lg font-semibold text-gray-700">
         Bill to {{ payment?.service?.name || '' }}
       </h3>
 
       <div class="border-t border-gray-200 my-4"></div>
 
-      <!-- Invoice Info -->
+      <!-- Details -->
       <div class="text-left text-sm space-y-1">
         <div class="flex justify-between">
           <span class="text-gray-500">From Account</span>
           <span class="font-medium text-gray-800">
-  {{ payment?.from_account?.number || '00000000' }}
-  <span v-if="payment?.from_account?.name" class="text-gray-500 text-xs">
-    — {{ payment.from_account.name }}
-  </span>
-</span>
-
+            {{ payment?.from_account?.number || '00000000' }}
+            <span v-if="payment?.from_account?.name" class="text-gray-500 text-xs">
+              — {{ payment.from_account.name }}
+            </span>
+          </span>
         </div>
 
         <div class="flex justify-between">
@@ -54,14 +52,12 @@
 
         <div class="flex justify-between">
           <span class="text-gray-500">Amount</span>
-          <span class="font-medium text-gray-800">
-            {{ formatCurrency(payment?.amount_cents) }}
-          </span>
+          <span class="font-medium text-gray-800">{{ formatCurrency(payment?.amount) }}</span>
         </div>
 
         <div class="flex justify-between">
           <span class="text-gray-500">Fee</span>
-          <span class="font-medium text-gray-800">{{ formatCurrency(payment?.fee_cents) }}</span>
+          <span class="font-medium text-gray-800">{{ formatCurrency(payment?.fee) }}</span>
         </div>
       </div>
 
@@ -69,7 +65,7 @@
 
       <div class="flex justify-between text-base font-semibold">
         <span>Total Amount</span>
-        <span>{{ formatCurrency(payment?.total_amount_cents || payment?.amount_cents) }}</span>
+        <span>{{ formatCurrency(payment?.total_amount) }}</span>
       </div>
     </div>
 
@@ -103,8 +99,9 @@
     </div>
   </div>
 </template>
-  <script setup lang="ts">
-  onMounted(() => {
+
+<script setup lang="ts">
+onMounted(() => {
   if (!payment.value?.id) navigateTo('/payment/invoice')
 })
 
@@ -119,15 +116,17 @@ const BACKEND_URL = config.public.apiBase
 
 const getLogoUrl = (path: string) => {
   if (!path) return `${BACKEND_URL}/static/logos/default.png`
-  if (path.startsWith('http')) return path
-  return `${BACKEND_URL}${path}`
+  return path.startsWith('http') ? path : `${BACKEND_URL}${path}`
 }
 
-const formatCurrency = (cents?: number | null) => {
-  if (!cents) return '—'
-  return `${(cents / 100).toLocaleString()} USD`
+// --- Format currency (Decimal-safe) ---
+const formatCurrency = (val?: number | string | null, currency = 'USD') => {
+  if (val === null || val === undefined) return '—'
+  const num = typeof val === 'string' ? parseFloat(val) : val
+  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 }
 
+// --- PIN handling ---
 const handleInput = (index: number, e: Event) => {
   const target = e.target as HTMLInputElement
   pin.value[index] = target.value
@@ -138,6 +137,8 @@ const handleBackspace = (index: number, e: KeyboardEvent) => {
   const target = e.target as HTMLInputElement
   if (!target.value && index > 0) pinInputs.value[index - 1]?.focus()
 }
+
+// --- Confirm payment ---
 const confirmPayment = async () => {
   try {
     const code = pin.value.join('')
@@ -150,10 +151,9 @@ const confirmPayment = async () => {
       response_msg: res.response_msg
     }
     navigateTo('/payment/success')
-  } catch (err:any) {
+  } catch (err: any) {
     console.error(err)
     error.value = err.response?._data?.response_msg || 'Invalid PIN or insufficient funds.'
   }
 }
-
 </script>

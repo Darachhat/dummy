@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from decimal import Decimal
 from typing import Optional
 
 
@@ -6,20 +7,22 @@ class PaymentStartOut(BaseModel):
     payment_id: int
     reference_number: str
     customer_name: Optional[str]
-    amount_cents: int
-    fee_cents: int
-    total_amount_cents: int
-    service: dict
+    amount: Decimal
+    fee: Decimal
+    total_amount: Decimal
+    currency: str
+    service: Optional[dict]
 
 
 class PaymentConfirmOut(BaseModel):
     status: str
     transaction_id: int
     account_id: int
-    new_balance_cents: int
+    new_balance: Decimal
     reference_number: str
-    customer_name: str | None
-    amount_cents: int
-    fee_cents: int
-    total_amount_cents: int
-    service: dict
+    customer_name: Optional[str]
+    amount: Decimal
+    fee: Decimal
+    total_amount: Decimal
+    currency: str
+    service: Optional[dict]

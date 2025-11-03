@@ -1,16 +1,18 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
-from datetime import datetime
+from sqlalchemy import Column, Integer, String, ForeignKey, Numeric
+from sqlalchemy.orm import relationship
 from db.base import Base
-
+from decimal import Decimal
 
 class Account(Base):
     __tablename__ = "accounts"
 
-
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
     number = Column(String, unique=True, nullable=False)
-    balance_cents = Column(Integer, default=0)
+    balance = Column(Numeric(12, 2), default=Decimal("0.00"))
     currency = Column(String, default="USD")
-    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="accounts")
+    payments = relationship("Payment", back_populates="account")
+    transactions = relationship("Transaction", back_populates="account")

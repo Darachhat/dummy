@@ -1,11 +1,11 @@
 from pydantic import BaseModel
-
+from decimal import Decimal
 
 class AccountOut(BaseModel):
     id: int
     name: str
     number: str
-    balance_cents: int
+    balance: Decimal
     currency: str
 
 

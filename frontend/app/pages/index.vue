@@ -6,16 +6,13 @@
         <h2 class="text-lg font-semibold text-gray-700">Welcome back</h2>
       </div>
 
-      <div class="flex gap-2">
-      
-        <button
-          @click="logout"
-          class="p-2 bg-red-500 text-white rounded-full shadow hover:bg-red-600 transition"
-          title="Logout"
-        >
-          <LogOut class="w-5 h-5" />
-        </button>
-      </div>
+      <button
+        @click="logout"
+        class="p-2 bg-red-500 text-white rounded-full shadow hover:bg-red-600 transition"
+        title="Logout"
+      >
+        <LogOut class="w-5 h-5" />
+      </button>
     </div>
 
     <!-- Balance Card -->
@@ -24,7 +21,6 @@
       <h1 class="text-3xl font-bold text-gray-800 mt-1">
         {{ formatCurrency(balance) }}
       </h1>
-      <p class="text-xs text-gray-400 mt-1">{{ accountNumber }}</p>
     </div>
 
     <!-- Actions -->
@@ -55,7 +51,7 @@
         <button
           @click="goAccounts"
           class="w-12 h-12 bg-gray-600 text-white rounded-full flex items-center justify-center mb-1"
-          title="Account Details"
+          title="Accounts"
         >
           <User class="w-6 h-6" />
         </button>
@@ -63,14 +59,13 @@
       </div>
     </div>
 
-    <!-- Transactions -->
+    <!-- Recent Transactions -->
     <div class="w-full max-w-md">
       <div class="flex justify-between px-4 mb-2">
         <h3 class="text-base font-semibold text-gray-700">Recent Transactions</h3>
         <button @click="goTransactions" class="text-sm text-gray-500 hover:text-gray-800">See all</button>
       </div>
 
-      <!-- Transaction List -->
       <div v-if="transactions.length" class="bg-white rounded-2xl shadow divide-y divide-gray-100">
         <div
           v-for="t in transactions"
@@ -90,33 +85,25 @@
               <p class="text-sm font-semibold text-gray-800">
                 {{ t.service_name || 'Transaction' }}
               </p>
-              <p class="text-xs text-gray-500">
-                Ref: {{ t.reference_number }}
-              </p>
-              <p class="text-xs text-gray-400">
-                {{ formatDate(t.created_at) }}
-              </p>
+              <p class="text-xs text-gray-500">Ref: {{ t.reference_number }}</p>
+              <p class="text-xs text-gray-400">{{ formatDate(t.created_at) }}</p>
             </div>
           </div>
 
           <!-- Right -->
           <div class="text-right">
             <p
-              :class="[
-                'text-sm font-semibold',
-                t.direction === 'debit' ? 'text-red-600' : 'text-green-600'
-              ]"
+              :class="[ 'text-sm font-semibold', t.direction === 'debit' ? 'text-red-600' : 'text-green-600' ]"
             >
-              {{ t.direction === 'debit' ? '-' : '+' }}{{ formatCurrency(t.total_amount_cents || t.amount_cents) }}
+              {{ t.direction === 'debit' ? '-' : '+' }}
+              {{ formatCurrency(t.total_amount || t.amount) }}
             </p>
             <p class="text-xs text-gray-500">TID: {{ t.transaction_id }}</p>
           </div>
         </div>
       </div>
 
-      <p v-else class="text-gray-500 text-center mt-6">
-        No recent transactions
-      </p>
+      <p v-else class="text-gray-500 text-center mt-6">No recent transactions</p>
     </div>
   </div>
 </template>
@@ -125,23 +112,19 @@
 const { $api } = useNuxtApp()
 const { logout } = useAuth()
 const balance = ref(0)
-const accountNumber = ref('')
 const transactions = ref<any[]>([])
 const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
 
-
-// Load dashboard data
 onMounted(async () => {
   try {
     const me = await $api('/me')
-    balance.value = me.total_balance_cents
-    accountNumber.value = me.accounts[0]?.number || '---'
+    balance.value = me.total_balance || 0
 
     const txs = await $api('/transactions')
-    transactions.value = txs.slice(0, 5) // show 5 most recent
+    transactions.value = txs.slice(0, 5)
   } catch (err) {
-    console.error('Failed to load data', err)
+    console.error('Failed to load dashboard', err)
   }
 })
 
@@ -156,9 +139,11 @@ const getLogoUrl = (path: string) => {
   return `${BACKEND_URL}${path}`
 }
 
-const formatCurrency = (cents?: number | null) => {
-  if (!cents) return '—'
-  return `$${(cents / 100).toLocaleString()}`
+// 💰 Format decimal currency
+const formatCurrency = (val?: number | string | null, currency = 'USD') => {
+  if (val === null || val === undefined) return '—'
+  const num = typeof val === 'string' ? parseFloat(val) : val
+  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 }
 
 const formatDate = (isoString?: string) => {

@@ -1,27 +1,26 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Numeric
 from datetime import datetime
+from sqlalchemy.orm import relationship
 from db.base import Base
 
-
 class Payment(Base):
-    __tablename__ = "payment"
+    __tablename__ = "payments"
 
-
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
-    reference_number = Column(String, index=True, nullable=False)
-    session_id = Column(String, index=True, nullable=False)
-    customer_name = Column(String, nullable=True)
-    amount_cents = Column(Integer, nullable=False)
-    fee_cents = Column(Integer, default=0)
-    total_amount_cents = Column(Integer, nullable=False)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
+
+    reference_number = Column(String, nullable=False)
+    customer_name = Column(String)
+    amount = Column(Numeric(12, 2), nullable=False)
+    fee = Column(Numeric(12, 2), default=0)
+    total_amount = Column(Numeric(12, 2), nullable=False)
     currency = Column(String, default="USD")
-    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
-    status = Column(String, default="lookup")
-    service_id = Column(Integer, ForeignKey("services.id"), nullable=True)
-
-
-    service = relationship("Service", back_populates="payments")
+    session_id = Column(String)
+    status = Column(String, default="started")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    account = relationship("Account", back_populates="payments")
+    service = relationship("Service", back_populates="payments")
+    transaction = relationship("Transaction", back_populates="payment", uselist=False)
