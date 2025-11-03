@@ -92,7 +92,7 @@ const BACKEND_URL = config.public.apiBase
 const { $api } = useNuxtApp()
 
 const getLogoUrl = (path: string) => {
-  if (!path) return `${BACKEND_URL}/static/logos/default.svg`
+  if (!path) return `${BACKEND_URL}/static/logos/default.psvg`
   return path.startsWith('http') ? path : `${BACKEND_URL}${path}`
 }
 

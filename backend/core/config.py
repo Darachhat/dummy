@@ -2,13 +2,7 @@ from decimal import Decimal
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-
     USE_MOCK_OSP: bool
-
-    CDC_API_BASE: str
-    CDC_API_AUTH: str
-    CDC_PARTNER: str
-    CDC_TIMEOUT: int
 
     DATABASE_URL: str 
     SECRET_KEY: str
@@ -22,9 +16,10 @@ class Settings(BaseSettings):
     OSP_TIMEOUT: int 
 
     FEE_AMOUNT: Decimal 
+    USD_TO_KHR_RATE: Decimal 
 
     class Config:
         env_file = ".env"
-        extra = "allow" # allow extra fields env
+        extra = "allow"
 
 settings = Settings()

@@ -8,7 +8,7 @@
       >
         <ArrowLeft class="w-5 h-5 text-gray-600" />
       </button>
-      <h2 class="text-lg font-semibold text-gray-700 mx-24 px-4">
+      <h2 class="text-lg font-semibold text-gray-700 mx-14 px-4">
         Transaction History
       </h2>
     </div>

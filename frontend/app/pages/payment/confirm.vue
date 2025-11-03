@@ -8,7 +8,7 @@
       >
         <ArrowLeft class="w-5 h-5 text-gray-600" />
       </button>
-      <h2 class="text-lg mx-24 px-10 font-semibold text-gray-700">Confirmation</h2>
+      <h2 class="text-lg mx-auto font-semibold text-gray-700">Confirmation</h2>
     </div>
 
     <!-- Confirmation Card -->
@@ -28,21 +28,11 @@
 
       <div class="border-t border-gray-200 my-4"></div>
 
-      <!-- Details -->
-      <div class="text-left text-sm space-y-1">
+      <!-- Payment Info -->
+      <div class="text-left text-sm space-y-2">
         <div class="flex justify-between">
           <span class="text-gray-500">From Account</span>
-          <span class="font-medium text-gray-800">
-            {{ payment?.from_account?.number || '00000000' }}
-            <span v-if="payment?.from_account?.name" class="text-gray-500 text-xs">
-              — {{ payment.from_account.name }}
-            </span>
-          </span>
-        </div>
-
-        <div class="flex justify-between">
-          <span class="text-gray-500">CDC Ref. No.</span>
-          <span class="font-medium text-gray-800">{{ payment?.reference_number }}</span>
+          <span class="font-medium text-gray-800">{{ payment?.from_account?.number }}</span>
         </div>
 
         <div class="flex justify-between">
@@ -51,21 +41,39 @@
         </div>
 
         <div class="flex justify-between">
-          <span class="text-gray-500">Amount</span>
-          <span class="font-medium text-gray-800">{{ formatCurrency(payment?.amount) }}</span>
+          <span class="text-gray-500">Reference No.</span>
+          <span class="font-medium text-gray-800">{{ payment?.reference_number }}</span>
+        </div>
+
+        <div class="flex justify-between">
+          <span class="text-gray-500">Invoice Amount</span>
+          <span class="font-medium text-gray-800">
+            {{ formatCurrency(payment?.invoice_amount) }} {{ payment?.invoice_currency }}
+          </span>
+        </div>
+
+        <div v-if="payment?.ledger_amount" class="flex justify-between text-xs text-gray-500">
+          <span>Converted Amount</span>
+          <span>
+            ≈ {{ formatCurrency(payment.ledger_amount) }} {{ payment.ledger_currency }}
+          </span>
         </div>
 
         <div class="flex justify-between">
           <span class="text-gray-500">Fee</span>
-          <span class="font-medium text-gray-800">{{ formatCurrency(payment?.fee) }}</span>
+          <span class="font-medium text-gray-800">
+            {{ formatCurrency(payment?.fee) }} {{ payment?.ledger_currency }}
+          </span>
         </div>
-      </div>
 
-      <div class="border-t border-gray-200 my-4"></div>
+        <div class="border-t border-gray-200 my-3"></div>
 
-      <div class="flex justify-between text-base font-semibold">
-        <span>Total Amount</span>
-        <span>{{ formatCurrency(payment?.total_amount) }}</span>
+        <div class="flex justify-between text-base font-semibold">
+          <span>Total</span>
+          <span>
+            {{ formatCurrency(payment?.total_amount) }} {{ payment?.ledger_currency }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -92,7 +100,7 @@
         @click="confirmPayment"
         class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
       >
-        CONFIRM
+        CONFIRM PAYMENT
       </button>
 
       <p v-if="error" class="text-red-600 text-sm mt-3">{{ error }}</p>
@@ -101,10 +109,6 @@
 </template>
 
 <script setup lang="ts">
-onMounted(() => {
-  if (!payment.value?.id) navigateTo('/payment/invoice')
-})
-
 const { $api } = useNuxtApp()
 const payment = useState<any>('payment')
 const pin = ref<string[]>(['', '', '', ''])
@@ -115,18 +119,15 @@ const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
 
 const getLogoUrl = (path: string) => {
-  if (!path) return `${BACKEND_URL}/static/logos/default.svg`
+  if (!path) return `${BACKEND_URL}/static/logos/default.png`
   return path.startsWith('http') ? path : `${BACKEND_URL}${path}`
 }
 
-// --- Format currency (Decimal-safe) ---
-const formatCurrency = (val?: number | string | null, currency = 'USD') => {
-  if (val === null || val === undefined) return '—'
-  const num = typeof val === 'string' ? parseFloat(val) : val
-  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+const formatCurrency = (n?: number | null) => {
+  if (!n) return '—'
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2 })
 }
 
-// --- PIN handling ---
 const handleInput = (index: number, e: Event) => {
   const target = e.target as HTMLInputElement
   pin.value[index] = target.value
@@ -138,22 +139,15 @@ const handleBackspace = (index: number, e: KeyboardEvent) => {
   if (!target.value && index > 0) pinInputs.value[index - 1]?.focus()
 }
 
-// --- Confirm payment ---
 const confirmPayment = async () => {
   try {
     const code = pin.value.join('')
     const res = await $api(`/payments/${payment.value.id}/confirm?pin=${code}`, { method: 'POST' })
-    payment.value = {
-      ...payment.value,
-      transaction_id: res.transaction_id,
-      acknowledgement_id: res.acknowledgement_id,
-      status: 'confirmed',
-      response_msg: res.response_msg
-    }
+    payment.value = { ...payment.value, ...res, status: 'confirmed' }
     navigateTo('/payment/success')
   } catch (err: any) {
     console.error(err)
-    error.value = err.response?._data?.response_msg || 'Invalid PIN or insufficient funds.'
+    error.value = err.response?._data?.detail || 'Failed to confirm payment.'
   }
 }
 </script>

@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center text-center px-6 py-10">
-    <!-- Success Card -->
     <div class="bg-white rounded-2xl shadow w-full max-w-md mb-3">
+      <!-- Logo + Check -->
       <div class="flex p-6 justify-center items-center space-x-3">
         <img
           v-if="payment?.service?.logo_url"
@@ -17,59 +17,65 @@
     </div>
 
     <!-- Bill Details -->
-    <div class="bg-white shadow rounded-2xl p-6 w-full max-w-md text-left space-y-1">
+    <div class="bg-white shadow rounded-2xl p-6 w-full max-w-md text-left space-y-2">
       <h3 class="text-lg font-semibold text-gray-700 mb-3">
-        Bill to {{ payment?.service?.name || 'Service' }}
+        Bill to {{ payment?.service_name || 'Service' }}
       </h3>
 
-      <div class="flex justify-between">
-        <span class="text-gray-500">From Account</span>
-        <span class="font-medium text-gray-800">{{ payment?.from_account?.number || '—' }}</span>
+      <div class="flex justify-between text-sm">
+        <span class="text-gray-500">Reference No.</span>
+        <span class="font-medium">{{ payment?.reference_number }}</span>
       </div>
 
-      <div class="flex justify-between">
-        <span class="text-gray-500">CDC Ref. No.</span>
-        <span class="font-medium text-gray-800">{{ payment?.reference_number || '—' }}</span>
-      </div>
-
-      <div class="flex justify-between">
+      <div class="flex justify-between text-sm">
         <span class="text-gray-500">Customer Name</span>
-        <span class="font-medium text-gray-800">{{ payment?.customer_name || '—' }}</span>
+        <span class="font-medium">{{ payment?.customer_name || '—' }}</span>
       </div>
 
-      <div class="flex justify-between">
-        <span class="text-gray-500">Amount</span>
-        <span class="font-medium text-gray-800">{{ formatCurrency(payment?.amount) }}</span>
+      <div class="flex justify-between text-sm">
+        <span class="text-gray-500">Invoice Amount</span>
+        <span class="font-medium">
+          {{ formatCurrency(payment?.invoice_amount) }} {{ payment?.invoice_currency }}
+        </span>
       </div>
 
-      <div class="flex justify-between">
+      <div v-if="payment?.ledger_amount" class="flex justify-between text-xs text-gray-500">
+        <span>Converted Amount</span>
+        <span>
+          ≈ {{ formatCurrency(payment.ledger_amount) }} {{ payment.ledger_currency }}
+        </span>
+      </div>
+
+      <div class="flex justify-between text-sm">
         <span class="text-gray-500">Fee</span>
-        <span class="font-medium text-gray-800">{{ formatCurrency(payment?.fee) }}</span>
+        <span class="font-medium">
+          {{ formatCurrency(payment?.fee) }} {{ payment?.ledger_currency }}
+        </span>
       </div>
 
       <div class="border-t border-gray-200 my-3"></div>
 
       <div class="flex justify-between text-base font-semibold">
-        <span>Total Amount</span>
-        <span>{{ formatCurrency(payment?.total_amount) }}</span>
+        <span>Total Paid</span>
+        <span>{{ formatCurrency(payment?.total_amount) }} {{ payment?.ledger_currency }}</span>
       </div>
 
       <div class="flex justify-between text-sm mt-2">
-        <span class="text-gray-500">Bank TID</span>
-        <span class="font-medium text-gray-800">{{ payment?.transaction_id || '—' }}</span>
+        <span class="text-gray-500">Transaction ID</span>
+        <span class="font-medium">{{ payment?.transaction_id || '—' }}</span>
       </div>
     </div>
 
     <!-- Buttons -->
     <div class="flex flex-col gap-3 w-full max-w-md mt-8">
       <button
-        @click="goHome"
+        @click="navigateTo('/')"
         class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
       >
         Back to Home
       </button>
       <button
-        @click="goTransactions"
+        @click="navigateTo('/transactions')"
         class="w-full py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
       >
         View Transactions
@@ -84,28 +90,12 @@ const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
 
 const getLogoUrl = (path: string) => {
-  if (!path) return `${BACKEND_URL}/static/logos/default.svg`
-  if (path.startsWith('http')) return path
-  return `${BACKEND_URL}${path}`
+  if (!path) return `${BACKEND_URL}/static/logos/default.png`
+  return path.startsWith('http') ? path : `${BACKEND_URL}${path}`
 }
 
-// --- Format decimal currency ---
-const formatCurrency = (val?: number | string | null, currency = 'USD') => {
-  if (val === null || val === undefined) return '—'
-  const num = typeof val === 'string' ? parseFloat(val) : val
-  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+const formatCurrency = (n?: number | null) => {
+  if (!n) return '—'
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2 })
 }
-
-const goHome = () => navigateTo('/')
-const goTransactions = () => navigateTo('/transactions')
 </script>
-
-<style scoped>
-@keyframes bounce-slow {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
-}
-.animate-bounce-slow {
-  animation: bounce-slow 1.8s infinite;
-}
-</style>

@@ -13,10 +13,17 @@ class Payment(Base):
 
     reference_number = Column(String, nullable=False)
     customer_name = Column(String)
+
+    # Ledger values (always USD)
     amount = Column(Numeric(12, 2), nullable=False)
     fee = Column(Numeric(12, 2), default=0)
     total_amount = Column(Numeric(12, 2), nullable=False)
     currency = Column(String, default="USD")
+
+    # Original invoice values (for display)
+    invoice_currency = Column(String, default="KHR")
+    invoice_amount = Column(Numeric(12, 2), nullable=False)
+
     session_id = Column(String)
     status = Column(String, default="started")
     created_at = Column(DateTime, default=datetime.utcnow)

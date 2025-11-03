@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from decimal import Decimal
 from passlib.hash import bcrypt
+import logging
 
 from core.config import settings
 from db.base import Base
@@ -44,6 +45,7 @@ Base.metadata.create_all(bind=engine)
 @app.on_event("startup")
 def seed_data():
     """Seed a default user, accounts, and services (idempotent)."""
+    logging.warning(f"USE_MOCK_OSP = {settings.USE_MOCK_OSP}")
     db = SessionLocal()
     try:
         user = db.query(User).filter_by(phone="069382165").first()
@@ -59,8 +61,8 @@ def seed_data():
         existing_accounts = {a.number for a in db.query(Account).filter_by(user_id=user.id).all()}
 
         default_accounts = [
-            {"name": "Main Wallet", "number": "168-168-168", "balance": Decimal("15000.00"), "currency": "USD"},
-            {"name": "Savings", "number": "369-369-369", "balance": Decimal("50000.00"), "currency": "USD"},
+            {"name": "Main Wallet", "number": "168-168-168", "balance": Decimal("150000000.00"), "currency": "USD"},
+            {"name": "Savings", "number": "369-369-369", "balance": Decimal("50000000000.00"), "currency": "USD"},
         ]
 
         for acc in default_accounts:
