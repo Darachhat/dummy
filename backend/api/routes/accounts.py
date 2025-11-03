@@ -48,7 +48,7 @@ def account_transactions(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    # ✅ One joined query to fetch everything efficiently
+    # One joined query to fetch everything efficiently
     txs = (
         db.query(Transaction)
         .outerjoin(Payment, Payment.id == Transaction.payment_id)
@@ -60,7 +60,8 @@ def account_transactions(
         .order_by(Transaction.created_at.desc())
         .all()
     )
-    
+
+    # Construct results
     result = [
         {
             "id": t.id,
@@ -80,3 +81,46 @@ def account_transactions(
     ]
 
     return result
+
+@router.get("/accounts/{account_id}/transactions/{transaction_id}")
+def get_transaction_detail(
+    account_id: int,
+    transaction_id: int,
+    user_id: int = Depends(get_user_id),
+    db: Session = Depends(get_db),
+):
+    """
+    Return a single transaction for an account, including payment + service info.
+    """
+    tx = (
+        db.query(Transaction)
+        .filter_by(id=transaction_id, account_id=account_id, user_id=user_id)
+        .options(joinedload(Transaction.payment).joinedload(Payment.service))
+        .first()
+    )
+
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    payment = tx.payment
+    service = payment.service if payment and payment.service else None
+
+    return {
+        "id": tx.id,
+        "reference_number": tx.reference_number,
+        "description": tx.description or "",
+        "amount": float(tx.amount),
+        "currency": tx.currency,
+        "direction": tx.direction,
+        "customer_name": getattr(payment, "customer_name", None),
+        "service": {
+            "name": getattr(service, "name", None),
+            "logo_url": getattr(service, "logo_url", None),
+        } if service else None,
+        "account": {
+            "id": tx.account.id,
+            "number": tx.account.number,
+            "name": tx.account.name,
+        } if tx.account else None,
+        "created_at": tx.created_at,
+    }

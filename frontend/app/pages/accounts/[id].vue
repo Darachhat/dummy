@@ -27,7 +27,7 @@
         <h3 class="text-base font-semibold text-gray-700">Recent Transactions</h3>
       </div>
 
-      <!-- ✅ Safe check for array -->
+      <!-- Safe check for array -->
       <div v-if="transactions && transactions.length" class="bg-white rounded-2xl shadow divide-y divide-gray-100">
         <div
           v-for="t in transactions"
@@ -70,7 +70,7 @@
 const { $api } = useNuxtApp()
 const route = useRoute()
 const account = ref<any>(null)
-const transactions = ref<any[]>([]) // ✅ initialize as empty array
+const transactions = ref<any[]>([])
 const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
 

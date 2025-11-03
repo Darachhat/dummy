@@ -134,12 +134,12 @@ const goAccounts = () => navigateTo('/accounts')
 const goTransactionDetail = (id: number) => navigateTo(`/transactions/${id}`)
 
 const getLogoUrl = (path: string) => {
-  if (!path) return `${BACKEND_URL}/static/logos/default.svg`
+  if (!path) return `${BACKEND_URL}/static/logos/default.png`
   if (path.startsWith('http')) return path
   return `${BACKEND_URL}${path}`
 }
 
-// 💰 Format decimal currency
+// Format decimal currency
 const formatCurrency = (val?: number | string | null, currency = 'USD') => {
   if (val === null || val === undefined) return '—'
   const num = typeof val === 'string' ? parseFloat(val) : val

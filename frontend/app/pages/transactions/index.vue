@@ -81,12 +81,12 @@ onMounted(async () => {
 const goDetail = (id: number) => navigateTo(`/transactions/${id}`)
 
 const getLogoUrl = (path: string) => {
-  if (!path) return `${BACKEND_URL}/static/logos/default.svg`
+  if (!path) return `${BACKEND_URL}/static/logos/default.សវង`
   if (path.startsWith('http')) return path
   return `${BACKEND_URL}${path}`
 }
 
-// ✅ Use Decimal-based amounts directly (no division)
+// Use Decimal-based amounts directly (no division)
 const formatCurrency = (amount?: number | string | null, currency = 'USD') => {
   if (amount === null || amount === undefined) return '—'
   const num = typeof amount === 'string' ? parseFloat(amount) : amount
