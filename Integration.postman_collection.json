@@ -1,0 +1,96 @@
+{
+  "info": {
+    "name": "DummyBank OSP Integration",
+    "_postman_id": "e9b9d7d5-924b-4b68-b93a-ospdummy",
+    "description": "Test your FastAPI backend with real OSP API integration (lookup → start → confirm → reverse).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1️⃣ Lookup Invoice",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/payments/lookup?reference_number={{reference_number}}",
+          "host": ["{{base_url}}"],
+          "path": ["payments", "lookup"],
+          "query": [{ "key": "reference_number", "value": "{{reference_number}}" }]
+        }
+      }
+    },
+    {
+      "name": "2️⃣ Start Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/payments/start?account_id={{account_id}}&reference_number={{reference_number}}&service_id={{service_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["payments", "start"],
+          "query": [
+            { "key": "account_id", "value": "{{account_id}}" },
+            { "key": "reference_number", "value": "{{reference_number}}" },
+            { "key": "service_id", "value": "{{service_id}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "3️⃣ Confirm Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/payments/{{payment_id}}/confirm?pin={{pin}}",
+          "host": ["{{base_url}}"],
+          "path": ["payments", "{{payment_id}}", "confirm"],
+          "query": [{ "key": "pin", "value": "{{pin}}" }]
+        }
+      }
+    },
+    {
+      "name": "4️⃣ Reverse Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/payments/{{payment_id}}/reverse",
+          "host": ["{{base_url}}"],
+          "path": ["payments", "{{payment_id}}", "reverse"]
+        }
+      }
+    },
+    {
+      "name": "5️⃣ Get Transactions",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/transactions",
+          "host": ["{{base_url}}"],
+          "path": ["transactions"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "token", "value": "" },
+    { "key": "reference_number", "value": "25Q2270438558" },
+    { "key": "account_id", "value": "1" },
+    { "key": "service_id", "value": "3" },
+    { "key": "payment_id", "value": "" },
+    { "key": "pin", "value": "1234" }
+  ]
+}
