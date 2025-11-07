@@ -17,7 +17,13 @@ class Payment(Base):
     fee = Column(Numeric(12, 2), default=0)
     total_amount = Column(Numeric(12, 2), nullable=False)
     currency = Column(String, default="USD")
-    session_id = Column(String)
+
+    session_id = Column(String, nullable=True)
+    acknowledgement_id = Column(String, nullable=True)
+    cdc_transaction_datetime = Column(DateTime, nullable=True)
+    cdc_transaction_datetime_utc = Column(DateTime, nullable=True) 
+    reversal_transaction_id = Column(String, nullable=True)
+    reversal_acknowledgement_id = Column(String, nullable=True)
     status = Column(String, default="started")
     created_at = Column(DateTime, default=datetime.utcnow)
 

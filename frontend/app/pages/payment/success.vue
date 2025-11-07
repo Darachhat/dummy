@@ -45,7 +45,10 @@
           <span class="text-gray-500">Customer Name</span>
           <span class="font-medium text-gray-800">{{ payment?.customer_name }}</span>
         </div>
-        <div class="dotted-divider"></div>
+        <div class="w-full flex items-center justify-center my-3">
+          <div class="dotted-divider w-full"></div>
+        </div>
+
 
         <div class="flex justify-between">
           <span class="text-gray-500">Amount</span>
@@ -61,13 +64,19 @@
           </span>
         </div>
 
-        <div class="dotted-divider"></div>
+       <div class="w-full flex items-center justify-center my-3">
+        <div class="dotted-divider w-full"></div>
+      </div>
+
 
         <div class="flex justify-between text-base font-semibold">
           <span>Total Paid</span>
           <span class="text-gray-900">{{ formatCurrency(payment?.total_amount) }} USD</span>
         </div>
-         <div class="dotted-divider"></div>
+         <div class="w-full flex items-center justify-center my-3">
+            <div class="dotted-divider w-full"></div>
+          </div>
+
 
         <div class="flex justify-between ">
           <span>Bank TID</span>

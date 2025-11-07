@@ -38,12 +38,13 @@
           <span class="text-gray-500">Customer Name</span>
           <span class="font-medium text-gray-800">{{ payment?.customer_name }}</span>
         </div>
-        <div class="dotted-divider"></div>
 
         <div class="flex justify-between">
           <span class="text-gray-500">CDC. Ref. No.</span>
           <span class="font-medium text-gray-800">{{ payment?.reference_number }}</span>
         </div>
+
+        <div class="dotted-divider"></div>
 
         <div class="flex justify-between items-start">
           <span class="text-gray-500">Amount</span>
