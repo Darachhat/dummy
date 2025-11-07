@@ -45,7 +45,7 @@ async def osp_confirm(reference_number: str, session_id: str, transaction_id: st
         "reference_number": reference_number,
         "session_id": session_id,
         "transaction_id": transaction_id,
-        "acknowledgement_id": acknowledgement_id,  # ✅ REQUIRED FIELD
+        "acknowledgement_id": acknowledgement_id,
         "partner": settings.OSP_PARTNER,
     }
 

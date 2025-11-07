@@ -8,6 +8,9 @@ from schemas.payment import PaymentStartOut, PaymentConfirmOut
 from core.config import settings
 import uuid
 import logging
+import httpx 
+from fastapi.responses import JSONResponse
+
 
 # Dynamic import for mock or real OSP client
 if settings.USE_MOCK_OSP is True:
@@ -29,32 +32,33 @@ router = APIRouter(prefix="/payments", tags=["Payments"])
 logger = logging.getLogger(__name__)
 
 
-# 1️⃣ Lookup Invoice (Query Payment)
+# Lookup Invoice (Query Payment)
 @router.get("/lookup")
 async def lookup(reference_number: str):
+    """Query OSP for payment info"""
     try:
         result = await osp_lookup(reference_number)
-        if not result:
-            raise HTTPException(status_code=400, detail="No response from OSP")
-
-        # Handle specific OSP codes
-        if result.get("response_code") == 423:
-            raise HTTPException(status_code=423, detail=result.get("message"))
-
-        if result.get("response_code") != 200:
-            raise HTTPException(status_code=400, detail=result)
-
         return result
-
-    except HTTPException:
-        raise
+    except httpx.HTTPStatusError as e:
+        # Handle specific 423 Locked status from OSP
+        if e.response.status_code == 423:
+            return JSONResponse(
+                status_code=423,
+                content={
+                    "detail": "This invoice has already been paid.",
+                    "reference_number": reference_number,
+                },
+            )
+        # Handle all other HTTP errors
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"OSP Error: {e.response.text}",
+        )
     except Exception as e:
-        logger.exception(f"Lookup failed for {reference_number}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-# 2️⃣ Start Payment
+#  Start Payment
 @router.post("/start", response_model=PaymentStartOut)
 async def start_payment(
     account_id: int,
@@ -70,22 +74,20 @@ async def start_payment(
     if not account or not service:
         raise HTTPException(status_code=404, detail="Account or service not found")
 
-    # Verify invoice again with OSP
+    # Re-verify invoice from OSP
     osp_data = await osp_lookup(reference_number)
     if not osp_data or osp_data.get("response_code") != 200:
         raise HTTPException(status_code=400, detail="Invalid invoice from OSP")
 
-    # OSP always returns amount in cents (e.g., 200000 KHR)
-    invoice_amount_khr = Decimal(str(osp_data.get("amount", "0"))) / Decimal("100")
+    # Convert and calculate totals
+    invoice_amount_khr = Decimal(str(osp_data.get("amount", "0"))) 
     invoice_currency = osp_data.get("currency", "KHR")
 
-    # --- Currency normalization ---
+    # --- Currency handling ---
     USD_TO_KHR_RATE = Decimal("4000")
     if invoice_currency == "KHR":
-        # Convert KHR → USD for internal calculations
-        amount_usd = (invoice_amount_khr / USD_TO_KHR_RATE).quantize(Decimal("0.01"))
+        amount_usd = (invoice_amount_khr / USD_TO_KHR_RATE)
     else:
-        # Already in USD
         amount_usd = invoice_amount_khr
 
     fee_usd = Decimal(settings.FEE_AMOUNT or "0.00")
@@ -94,10 +96,9 @@ async def start_payment(
     if account.balance < total_usd:
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
-    # Generate or reuse session_id
     osp_session_id = osp_data.get("session_id") or str(uuid.uuid4())
 
-    # Create payment record (store in USD)
+    # Store as USD in database
     payment = Payment(
         user_id=user_id,
         account_id=account.id,
@@ -107,7 +108,7 @@ async def start_payment(
         amount=amount_usd,
         fee=fee_usd,
         total_amount=total_usd,
-        currency="USD",  # stored as USD
+        currency="USD",
         session_id=osp_session_id,
         status="started",
         created_at=datetime.utcnow(),
@@ -116,7 +117,7 @@ async def start_payment(
     db.commit()
     db.refresh(payment)
 
-    # Return both invoice and internal details
+    # Return both KHR + USD for frontend display
     return {
         "payment_id": payment.id,
         "reference_number": payment.reference_number,
@@ -137,7 +138,7 @@ async def start_payment(
 
 
 
-# 3️⃣ Confirm Payment (Commit + Confirm)
+# Confirm Payment (Commit + Confirm)
 @router.post("/{payment_id}/confirm", response_model=PaymentConfirmOut)
 async def confirm_payment(
     payment_id: int,
@@ -216,7 +217,7 @@ async def confirm_payment(
             "fee": payment.fee,
             "total_amount": payment.total_amount,
             "currency": payment.currency,
-            "new_balance": float(account.balance),  # ✅ FIXED
+            "new_balance": float(account.balance), 
             "service": {
                 "id": payment.service.id,
                 "name": payment.service.name,
@@ -230,7 +231,7 @@ async def confirm_payment(
         raise HTTPException(status_code=500, detail=f"Confirm failed: {e}")
 
 
-# 4️⃣ Reverse Payment
+# Reverse Payment
 @router.post("/{payment_id}/reverse")
 async def reverse_payment(
     payment_id: int,

@@ -20,6 +20,14 @@ def create_token(sub: int):
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGO)
 
+def create_token_specific(sub: int):
+    payload = {
+        "sub": sub,
+        "iat": datetime.utcnow(),
+        "exp": datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGO)
+
 def decode_token(token: str) -> int:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGO])

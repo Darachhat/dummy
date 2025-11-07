@@ -61,8 +61,8 @@ def seed_data():
         existing_accounts = {a.number for a in db.query(Account).filter_by(user_id=user.id).all()}
 
         default_accounts = [
-            {"name": "Main Wallet", "number": "168-168-168", "balance": Decimal("150000000.00"), "currency": "USD"},
-            {"name": "Savings", "number": "369-369-369", "balance": Decimal("50000000000.00"), "currency": "USD"},
+            {"name": "Main Wallet", "number": "168-168-168", "balance": Decimal("15000.00"), "currency": "USD"},
+            {"name": "Savings", "number": "369-369-369", "balance": Decimal("50000.00"), "currency": "USD"},
         ]
 
         for acc in default_accounts:

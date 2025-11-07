@@ -1,64 +1,62 @@
 <template>
-  <div class="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4">
+  <div class="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
     <!-- Header -->
-    <div class="flex items-center w-full max-w-md mb-6">
+    <div class="relative flex items-center justify-center w-full max-w-lg mb-8">
       <button
         @click="navigateTo('/transactions')"
-        class="p-2 bg-white rounded-full shadow hover:bg-gray-50"
+        class="absolute left-4 p-2 bg-white rounded-full shadow hover:bg-gray-100 transition"
       >
-        <ArrowLeft class="w-5 h-5 text-gray-600" />
+        <ArrowLeft class="w-5 h-5 text-gray-700" />
       </button>
-      <h2 class="text-lg font-semibold text-gray-700 mx-20 px-4">Transaction Detail</h2>
+      <h2 class="text-xl font-semibold text-gray-800 text-center">Transaction Detail</h2>
     </div>
 
     <!-- Loading -->
     <div v-if="loading" class="text-gray-500 mt-10">Loading transaction details...</div>
 
-    <!-- Transaction Card -->
+    <!-- Transaction Detail Card -->
     <div
       v-else-if="transaction"
-      class="bg-white rounded-2xl shadow w-full max-w-md p-6 space-y-4"
+      class="bg-white rounded-2xl shadow border border-gray-100 w-full max-w-lg p-6 space-y-5"
     >
-      <!-- Logo -->
-      <div class="flex items-center justify-center mb-2">
+      <!-- Service Info -->
+      <div class="flex flex-col items-center text-center mb-4">
         <img
           v-if="transaction.service?.logo_url"
           :src="getLogoUrl(transaction.service.logo_url)"
           alt="Service Logo"
-          class="w-16 h-16 object-contain rounded-full"
+          class="w-16 h-16 rounded-full object-contain mb-3"
         />
+        <h3 class="text-lg font-semibold text-gray-800">
+          {{ transaction.service?.name || 'Transaction' }}
+        </h3>
+        <p class="text-sm text-gray-500">
+          Ref: {{ transaction.reference_number || '—' }}
+        </p>
       </div>
 
-      <h3 class="text-lg font-semibold text-gray-800 text-center">
-        {{ transaction.service?.name || 'Transaction' }}
-      </h3>
+      <div class="border-t border-gray-200"></div>
 
-      <div class="border-t border-gray-200 my-3"></div>
-
-      <div class="text-sm text-gray-700 space-y-2">
-        <div class="flex justify-between">
-          <span class="text-gray-500">Reference No.</span>
-          <span class="font-medium">{{ transaction.reference_number || '—' }}</span>
-        </div>
-
+      <!-- Transaction Details -->
+      <div class="text-sm text-gray-700 space-y-3 mt-3">
         <div class="flex justify-between">
           <span class="text-gray-500">Customer Name</span>
-          <span class="font-medium">{{ transaction.customer_name || '—' }}</span>
-        </div>
-
-        <div class="flex justify-between">
-          <span class="text-gray-500">Description</span>
-          <span class="font-medium text-right">{{ transaction.description || '—' }}</span>
+          <span class="font-medium text-right">{{ transaction.customer_name || '—' }}</span>
         </div>
 
         <div class="flex justify-between">
           <span class="text-gray-500">Account</span>
           <span class="font-medium text-right">
             {{ transaction.account?.number || '—' }}
-            <span class="text-gray-500 text-xs" v-if="transaction.account?.name">
+            <span v-if="transaction.account?.name" class="text-gray-500 text-xs">
               — {{ transaction.account.name }}
             </span>
           </span>
+        </div>
+
+        <div class="flex justify-between">
+          <span class="text-gray-500">Description</span>
+          <span class="font-medium text-right">{{ transaction.description || '—' }}</span>
         </div>
 
         <div class="flex justify-between">
@@ -85,30 +83,34 @@
 
       <div class="border-t border-gray-200 my-3"></div>
 
-      <!-- ✅ Smart Back Button -->
-      <div class="flex justify-center gap-3">
+      <!-- Actions -->
+      <div class="flex flex-col md:flex-row justify-center gap-3">
         <button
           @click="goToAccount(transaction.account?.id)"
-          class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          class="flex-1 py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-lg hover:opacity-90 transition"
         >
           View Account
         </button>
 
         <button
           @click="navigateTo('/transactions')"
-          class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+          class="flex-1 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
         >
           Back to History
         </button>
       </div>
     </div>
 
-    <!-- Error State -->
-    <div v-else class="text-red-600 mt-10">Failed to load transaction details.</div>
+    <!-- Error -->
+    <div v-else class="text-red-600 mt-10">
+      Failed to load transaction details.
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ArrowLeft } from 'lucide-vue-next'
+
 const { $api } = useNuxtApp()
 const route = useRoute()
 const transaction = ref<any>(null)
@@ -119,13 +121,10 @@ const BACKEND_URL = config.public.apiBase
 onMounted(async () => {
   try {
     const transactionId = Number(route.params.id)
-
-    // Fetch all user accounts first
     const me = await $api('/me')
     const accounts = me.accounts || []
 
     let found = null
-
     for (const acc of accounts) {
       try {
         const tx = await $api(`/accounts/${acc.id}/transactions/${transactionId}`)
@@ -134,14 +133,8 @@ onMounted(async () => {
           break
         }
       } catch (err: any) {
-
-        if (err?.response?.status !== 404) {
-          console.error(`Error checking account ${acc.id}:`, err)
-        }
+        if (err?.response?.status !== 404) console.error(`Error on account ${acc.id}:`, err)
       }
-    }
-    if (!found) {
-      console.warn('Transaction not found in any account.')
     }
     transaction.value = found
   } catch (err) {
@@ -151,9 +144,8 @@ onMounted(async () => {
   }
 })
 
-
 const getLogoUrl = (path: string) => {
-  if (!path) return `${BACKEND_URL}/static/logos/default.png`
+  if (!path) return `${BACKEND_URL}/static/logos/default.svg`
   if (path.startsWith('http')) return path
   return `${BACKEND_URL}${path}`
 }
