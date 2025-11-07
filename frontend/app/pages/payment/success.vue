@@ -30,8 +30,14 @@
       </div>
 
       <div class="space-y-3 text-sm">
+
         <div class="flex justify-between">
-          <span class="text-gray-500">Reference No.</span>
+          <span class="text-gray-500">From Account</span>
+          <span class="font-medium text-gray-800">{{ payment?.from_account?.number }}</span>
+        </div>
+
+        <div class="flex justify-between">
+          <span class="text-gray-500">CDC. Ref. No.</span>
           <span class="font-medium text-gray-800">{{ payment?.reference_number }}</span>
         </div>
 
@@ -39,9 +45,10 @@
           <span class="text-gray-500">Customer Name</span>
           <span class="font-medium text-gray-800">{{ payment?.customer_name }}</span>
         </div>
+        <div class="dotted-divider"></div>
 
         <div class="flex justify-between">
-          <span class="text-gray-500">Invoice Amount</span>
+          <span class="text-gray-500">Amount</span>
           <span class="font-medium text-gray-800">
             {{ formatCurrency(payment?.invoice_amount) }} {{ payment?.invoice_currency }}
           </span>
@@ -54,11 +61,19 @@
           </span>
         </div>
 
-        <div class="border-t border-gray-200 my-3"></div>
+        <div class="dotted-divider"></div>
 
         <div class="flex justify-between text-base font-semibold">
           <span>Total Paid</span>
           <span class="text-gray-900">{{ formatCurrency(payment?.total_amount) }} USD</span>
+        </div>
+         <div class="dotted-divider"></div>
+
+        <div class="flex justify-between ">
+          <span>Bank TID</span>
+          <span class="text-gray-500">
+            {{ payment?.transaction_id || 'N/A' }}
+          </span>
         </div>
       </div>
     </div>

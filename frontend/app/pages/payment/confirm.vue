@@ -27,10 +27,8 @@
         Bill to {{ payment?.service?.name || 'Service' }}
       </h3>
 
-      <div class="border-t border-gray-200 my-4"></div>
-
       <!-- Bill Info -->
-      <div class="text-left text-sm space-y-3">
+      <div class="text-left text-sm space-y-4">
         <div class="flex justify-between">
           <span class="text-gray-500">From Account</span>
           <span class="font-medium text-gray-800">{{ payment?.from_account?.number }}</span>
@@ -40,14 +38,15 @@
           <span class="text-gray-500">Customer Name</span>
           <span class="font-medium text-gray-800">{{ payment?.customer_name }}</span>
         </div>
+        <div class="dotted-divider"></div>
 
         <div class="flex justify-between">
-          <span class="text-gray-500">Reference No.</span>
+          <span class="text-gray-500">CDC. Ref. No.</span>
           <span class="font-medium text-gray-800">{{ payment?.reference_number }}</span>
         </div>
 
         <div class="flex justify-between items-start">
-          <span class="text-gray-500">Invoice Amount</span>
+          <span class="text-gray-500">Amount</span>
           <div class="text-right">
             <p class="font-medium text-gray-800">
               {{ formatCurrency(payment?.invoice_amount) }} {{ payment?.invoice_currency }}
@@ -62,11 +61,11 @@
           <span class="text-gray-500">Fee</span>
           <span class="font-medium text-gray-800">{{ formatCurrency(payment?.fee) }} USD</span>
         </div>
+        <div class="dotted-divider"></div>
 
-        <div class="border-t border-gray-200 my-3"></div>
 
         <div class="flex justify-between text-base font-semibold">
-          <span>Total</span>
+          <span>Total Amount</span>
           <div class="text-right">
             <p>{{ formatCurrency(payment?.total_amount) }} USD</p>
             <p v-if="payment?.invoice_currency === 'KHR'" class="text-xs text-gray-500">
@@ -166,7 +165,7 @@ const confirmPayment = async () => {
 }
 </script>
 
-<style scoped>
+<style>
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;
