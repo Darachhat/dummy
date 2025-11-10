@@ -8,21 +8,33 @@
 
     <!-- Right side: Login form -->
     <div
-      class="flex flex-1 flex-col justify-center items-center bg-gray-50 px-6 py-12"
+      class="relative flex flex-1 flex-col justify-center items-center bg-gray-50 px-6 py-12"
     >
-      <!-- Logo / App Title -->
+      <!-- Logo at Top Left -->
+      <div class="absolute top-1 left-6 flex items-center space-x-2">
+        <img
+          src="/images/logo_dummy_bank.png"
+          alt="Dummy Bank Logo"
+          class="w-40 h-40 object-contain"
+        />
+
+      </div>
+
+      <!-- Centered Login Section -->
       <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">DummyBank</h1>
-        <p class="text-gray-500 text-sm mt-1">Secure Digital Banking Access</p>
+        <h2 class="text-3xl font-bold text-gray-900">Welcome Back</h2>
+        <p class="text-gray-500 text-sm mt-1">
+          Secure Digital Banking Access
+        </p>
       </div>
 
       <!-- Login Card -->
       <div
         class="bg-white w-full max-w-md shadow-lg rounded-2xl p-8 border border-gray-100"
       >
-        <h2 class="text-lg font-semibold text-gray-800 text-center mb-6">
+        <h3 class="text-lg font-semibold text-gray-800 text-center mb-6">
           Sign in to your account
-        </h2>
+        </h3>
 
         <form @submit.prevent="submit" class="space-y-5">
           <!-- Phone Number -->
@@ -62,19 +74,6 @@
           >
             Sign In
           </button>
-
-          <!-- Register Link -->
-          <!-- <div class="text-center mt-4">
-            <p class="text-sm text-gray-500">
-              Don’t have an account?
-              <a
-                href="/register"
-                class="text-gray-800 font-medium hover:underline"
-              >
-                Create one
-              </a>
-            </p>
-          </div> -->
         </form>
       </div>
 

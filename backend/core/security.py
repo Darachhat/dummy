@@ -1,16 +1,18 @@
 import jwt
+import bcrypt
 from datetime import datetime, timedelta
-from passlib.hash import bcrypt
 from fastapi import HTTPException
 from core.config import settings
 
 ALGO = "HS256"
 
+# Changed from passlib.CryptContext to direct bcrypt to avoid compatibility issues
+# with bcrypt 5.x. Direct bcrypt usage is more stable and handles 72-byte limit internally.
 def hash_password(password: str) -> str:
-    return bcrypt.hash(password)
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.verify(password, hashed)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 def create_token(sub: int):
     payload = {

@@ -161,41 +161,37 @@ async def confirm_payment(
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
     try:
-        transaction_id = f"TID{payment.id:06d}"
-        logger.info(f"[Payment Confirm] Start for Ref={payment.reference_number}, Txn={transaction_id}")
+        import uuid
+        transaction_id = f"TID{payment.id:06d}{uuid.uuid4().hex[:2]}"
+        logger.info(f"[Payment Confirm] Start Ref={payment.reference_number}, Txn={transaction_id}")
 
-        # ✅ Always refresh session_id before commit (avoid 422 errors)
-        try:
-            lookup_res = await osp_lookup(payment.reference_number)
-            if lookup_res.get("response_code") == 200:
-                payment.session_id = lookup_res.get("session_id")
-                db.commit()
-                logger.info(f"[Payment Confirm] Refreshed session_id = {payment.session_id}")
-            else:
-                logger.warning(f"[Payment Confirm] Failed to refresh session_id: {lookup_res}")
-        except Exception as e:
-            logger.warning(f"[Payment Confirm] Session refresh skipped: {e}")
+        # 🔁 Always refresh session before commit
+        lookup_res = await osp_lookup(payment.reference_number)
+        if lookup_res.get("response_code") == 200:
+            payment.session_id = lookup_res.get("session_id")
+            db.commit()
+            logger.info(f"[Payment Confirm] Refreshed session_id={payment.session_id}")
+        else:
+            raise HTTPException(status_code=400, detail="Invalid invoice or expired session from OSP")
 
-        # --- Commit to OSP ---
+        # --- Commit Payment ---
         commit_res = await osp_commit(payment.reference_number, payment.session_id, transaction_id)
         logger.info(f"[OSP Commit Response] {commit_res}")
 
         if commit_res.get("response_code") != 200:
             raise HTTPException(status_code=400, detail="OSP commit failed")
 
-        # ✅ Convert CDC datetime (UTC+7) → UTC & keep both
+        # --- Convert CDC Datetime (UTC+7 and UTC) ---
         cdc_dt_str = commit_res.get("cdc_transaction_datetime")
-        cdc_local, cdc_utc = None, None
-
+        cdc_local = cdc_utc = None
         if cdc_dt_str:
             try:
-                from datetime import datetime, timedelta, timezone
                 cdc_local = datetime.strptime(cdc_dt_str, "%Y-%m-%d %H:%M:%S")
                 cdc_utc = (cdc_local - timedelta(hours=7)).replace(tzinfo=timezone.utc)
             except Exception as e:
                 logger.warning(f"[CDC Time Parse Error] {cdc_dt_str}: {e}")
 
-        # --- Update Payment DB ---
+        # --- Update DB ---
         payment.acknowledgement_id = commit_res.get("acknowledgement_id")
         payment.cdc_transaction_datetime = cdc_local
         payment.cdc_transaction_datetime_utc = cdc_utc
@@ -203,11 +199,7 @@ async def confirm_payment(
         db.commit()
         db.refresh(payment)
 
-        ack_id = payment.acknowledgement_id
-        if not ack_id:
-            logger.warning("[Payment Confirm] Missing acknowledgement_id after commit")
-
-        # --- Record transaction locally ---
+        # --- Record Transaction ---
         tx = Transaction(
             user_id=user_id,
             account_id=account.id,
@@ -224,7 +216,8 @@ async def confirm_payment(
         db.commit()
         db.refresh(tx)
 
-        # --- Confirm with OSP ---
+        # --- Confirm Payment ---
+        ack_id = payment.acknowledgement_id
         confirm_res = await osp_confirm(payment.reference_number, transaction_id, ack_id)
         logger.info(f"[OSP Confirm Response] {confirm_res}")
 
@@ -234,8 +227,7 @@ async def confirm_payment(
         payment.status = "confirmed"
         db.commit()
 
-        # ✅ Local time for response
-        from core.utils.timezone import to_local_time
+        # --- Prepare local time for UI ---
         local_cdc_time = to_local_time(payment.cdc_transaction_datetime)
 
         return {

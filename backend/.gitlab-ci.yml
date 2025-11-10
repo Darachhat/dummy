@@ -1,0 +1,443 @@
+stages:
+  - build
+  - deploy
+  - notify
+
+
+variables:
+  # Git
+  GIT_REPO: $GIT_REPO
+  GIT_STRATEGY: clone
+  GIT_DEPTH: 10
+  GIT_RUNNER_TAGS: dev-cicd
+
+  # Docker
+  DOCKER_REGISTRY: $DOCKER_REGISTRY
+  DOCKER_REGISTRY_USER: $DOCKER_REGISTRY_USER
+  DOCKER_REGISTRY_PASSWORD: $DOCKER_REGISTRY_PASSWORD
+  DOCKER_FOLDER: $DOCKER_FOLDER
+  DOCKER_IMAGE: $DOCKER_IMAGE
+
+  # Application name
+  APPLICATION: $APPLICATION
+
+  # Service replications
+  SERVICE_REPLICAS: $SERVICE_REPLICAS
+
+  # UAT Environment
+  DEPLOY_UAT_SERVER: $DEPLOY_UAT_SERVER
+  UAT_USER: $UAT_USER
+  UAT_URL: $UAT_URL
+  UAT_DATABASE_URL: $UAT_DATABASE_URL
+  UAT_SECRET_KEY: $UAT_SECRET_KEY
+  UAT_ACCESS_TOKEN_EXPIRE_MINUTES: $UAT_ACCESS_TOKEN_EXPIRE_MINUTES
+  UAT_CORS_ORIGINS: $UAT_CORS_ORIGINS
+  UAT_DEBUG: $UAT_DEBUG
+  UAT_USE_MOCK_OSP: $UAT_USE_MOCK_OSP
+  UAT_OSP_BASE_URL: $UAT_OSP_BASE_URL
+  UAT_OSP_AUTH: $UAT_OSP_AUTH
+  UAT_OSP_PARTNER: $UAT_OSP_PARTNER
+  UAT_OSP_TIMEOUT: $UAT_OSP_TIMEOUT
+  UAT_FEE_AMOUNT: $UAT_FEE_AMOUNT
+  UAT_USD_TO_KHR_RATE: $UAT_USD_TO_KHR_RATE
+
+  # PROD Environment
+  DEPLOY_PROD_SERVER: $DEPLOY_PROD_SERVER
+  PROD_USER: $PROD_USER
+  PROD_URL: $PROD_URL
+  PROD_DATABASE_URL: $PROD_DATABASE_URL
+  PROD_SECRET_KEY: $PROD_SECRET_KEY
+  PROD_ACCESS_TOKEN_EXPIRE_MINUTES: $PROD_ACCESS_TOKEN_EXPIRE_MINUTES
+  PROD_CORS_ORIGINS: $PROD_CORS_ORIGINS
+  PROD_DEBUG: $PROD_DEBUG
+  PROD_USE_MOCK_OSP: $PROD_USE_MOCK_OSP
+  PROD_OSP_BASE_URL: $PROD_OSP_BASE_URL
+  PROD_OSP_AUTH: $PROD_OSP_AUTH
+  PROD_OSP_PARTNER: $PROD_OSP_PARTNER
+  PROD_OSP_TIMEOUT: $PROD_OSP_TIMEOUT
+  PROD_FEE_AMOUNT: $PROD_FEE_AMOUNT
+  PROD_USD_TO_KHR_RATE: $PROD_USD_TO_KHR_RATE
+
+  # Staging Environment
+  DEPLOY_STAGING_SERVER: $DEPLOY_STAGING_SERVER
+  STAGING_USER: $STAGING_USER
+  STAGING_URL: $STAGING_URL
+  STAGING_DATABASE_URL: $STAGING_DATABASE_URL
+  STAGING_SECRET_KEY: $STAGING_SECRET_KEY
+  STAGING_ACCESS_TOKEN_EXPIRE_MINUTES: $STAGING_ACCESS_TOKEN_EXPIRE_MINUTES
+  STAGING_CORS_ORIGINS: $STAGING_CORS_ORIGINS
+  STAGING_DEBUG: $STAGING_DEBUG
+  STAGING_USE_MOCK_OSP: $STAGING_USE_MOCK_OSP
+  STAGING_OSP_BASE_URL: $STAGING_OSP_BASE_URL
+  STAGING_OSP_AUTH: $STAGING_OSP_AUTH
+  STAGING_OSP_PARTNER: $STAGING_OSP_PARTNER
+  STAGING_OSP_TIMEOUT: $STAGING_OSP_TIMEOUT
+  STAGING_FEE_AMOUNT: $STAGING_FEE_AMOUNT
+  STAGING_USD_TO_KHR_RATE: $STAGING_USD_TO_KHR_RATE
+
+  # Ansible
+  ANSIBLE_REPO: $ANSIBLE_REPO
+  ANSIBLE_PLAYBOOK: $ANSIBLE_PLAYBOOK
+  ANSIBLE_REPO_PATH: $ANSIBLE_REPO_PATH
+  ANSIBLE_BRANCH: $ANSIBLE_BRANCH
+  UAT_ANSIBLE_INVENTORY: $UAT_ANSIBLE_INVENTORY
+  STAGING_ANSIBLE_INVENTORY: $STAGING_ANSIBLE_INVENTORY
+  PROD_ANSIBLE_INVENTORY: $PROD_ANSIBLE_INVENTORY
+
+  # Telegram Notifications
+  UAT_TELEGRAM_CHAT_ID: $UAT_TELEGRAM_CHAT_ID
+  UAT_TELEGRAM_TOKEN_BOT: $UAT_TELEGRAM_BOT_TOKEN
+  STAGING_TELEGRAM_CHAT_ID: $STAGING_TELEGRAM_CHAT_ID
+  STAGING_TELEGRAM_TOKEN_BOT: $STAGING_TELEGRAM_BOT_TOKEN
+  PROD_TELEGRAM_CHAT_ID: $PROD_TELEGRAM_CHAT_ID
+  PROD_TELEGRAM_TOKEN_BOT: $PROD_TELEGRAM_BOT_TOKEN
+
+  # SSH Configuration
+  CI_SERVER_HOST: $CI_SERVER_HOST
+  SSH_PRIVATE_KEY: $SSH_PRIVATE_KEY
+  SSH_KNOWN_HOSTS: $SSH_KNOWN_HOSTS
+
+  # Personal access token
+  PERSONAL_ACCESS_TOKEN: $PERSONAL_ACCESS_TOKEN
+
+  # Rerun flag
+  DEPLOY_MANUALLY_RERUN: "false"
+
+.build_template: &build_template
+  stage: build
+  tags:
+    - dev-cicd
+  image: docker:26.1.4-alpine3.20
+  variables:
+    DOCKER_HOST: unix:///var/run/docker.sock
+    DOCKER_BUILDKIT: 1
+  before_script:
+    - apk add --no-cache git ca-certificates curl
+    - update-ca-certificates
+    - docker info
+    - echo "$DOCKER_REGISTRY_PASSWORD" | docker login $DOCKER_REGISTRY -u "$DOCKER_REGISTRY_USER" --password-stdin
+    - git config --global http.$CI_SERVER_HOST.extraheader "PRIVATE-TOKEN:$PERSONAL_ACCESS_TOKEN"
+  script:
+    - chmod +x check_changes.sh
+    - ./check_changes.sh
+    - source build.env
+    - if [ "$REBUILD_NEEDED" = "true" ]; then
+        chmod +x build.sh;
+        ./build.sh;
+      else
+        echo "Skipping build as no changes detected in Dockerfile or requirements.txt";
+      fi
+  after_script:
+    - docker logout $DOCKER_REGISTRY
+    - echo "BUILD_JOB_STATUS=$CI_JOB_STATUS" >> job_status.env
+  artifacts:
+    reports:
+      dotenv: build.env
+    paths:
+      - $CI_PROJECT_DIR/build.env
+      - job_status.env
+
+
+.deploy_template: &deploy_template
+  stage: deploy
+  tags:
+    - dev-cicd
+  image:
+    name: willhallonline/ansible:2.16.4-ubuntu-22.04
+    entrypoint: [""]
+  variables:
+    ANSIBLE_HOST_KEY_CHECKING: "False"
+  script:
+    # Setup SSH
+    - export ENV=${ENV:-default}
+    - echo "ENV set to:$ENV"
+    - "which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )"
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -v -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    - apt-get install -y git
+    
+    # Run deployment
+    - chmod +x deploy.sh
+    - ./deploy.sh
+    - echo "DEPLOY_MANUALLY_RERUN=true" >> job_status.env
+  after_script:
+    - echo "Cleaning up SSH agent..."
+    - ssh-agent -k || true
+    - echo "DEPLOY_JOB_STATUS=$CI_JOB_STATUS" >> job_status.env
+  artifacts:
+    paths:
+      - job_status.env
+
+
+
+.notify_template: &notify_template
+  stage: notify
+  tags:
+    - dev-cicd
+  image: alpine:latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "uat" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "prod"'
+      when: always
+    - if: '$DEPLOY_MANUALLY_RERUN == "true"'
+      when: always
+  before_script:
+    - apk add --no-cache curl jq git
+  script:
+    - |
+      if [ -f job_status.env ]; then
+        source job_status.env
+      else
+        BUILD_JOB_STATUS="unknown"
+        DEPLOY_JOB_STATUS="unknown"
+        DEPLOY_MANUALLY_RERUN="false"
+      fi
+      echo "BUILD_JOB_STATUS=$BUILD_JOB_STATUS"
+      echo "DEPLOY_JOB_STATUS=$DEPLOY_JOB_STATUS"
+      echo "DEPLOY_MANUALLY_RERUN=$DEPLOY_MANUALLY_RERUN"
+      if [ "$BUILD_JOB_STATUS" = "success" ] && [ "$DEPLOY_JOB_STATUS" = "success" ]; then
+        export CI_JOB_STATUS="success"
+      elif [ "$BUILD_JOB_STATUS" = "failed" ] || [ "$DEPLOY_JOB_STATUS" = "failed" ]; then
+        export CI_JOB_STATUS="failed"
+      else
+        export CI_JOB_STATUS="unknown"
+      fi
+    - chmod +x notify.sh
+    - ./notify.sh
+  after_script:
+    - |
+      echo "Debugging Telegram variables:"
+      echo "TELEGRAM_BOT_TOKEN is set: $([[ -n $TELEGRAM_BOT_TOKEN ]] && echo 'Yes' || echo 'No')"
+      echo "TELEGRAM_CHAT_ID is set: $([[ -n $TELEGRAM_CHAT_ID ]] && echo 'Yes' || echo 'No')"
+      
+      if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+        echo "Sending Telegram notification..."
+        if [ -f "$CI_PROJECT_DIR/notification_message.txt" ]; then
+          MESSAGE=$(cat "$CI_PROJECT_DIR/notification_message.txt")
+          echo "Message content:"
+          echo "$MESSAGE"
+          echo "Sending message to Telegram..."
+          RESPONSE=$(curl -v -sS -X POST \
+            "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+            -d chat_id="$TELEGRAM_CHAT_ID" \
+            -d text="$MESSAGE" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true")
+
+          echo "Telegram API Response:"
+          echo "$RESPONSE"
+
+          if echo "$RESPONSE" | jq -e '.ok == true' > /dev/null; then
+            echo "✅ Telegram notification sent successfully."
+          else
+            ERROR_DESC=$(echo "$RESPONSE" | jq -r '.description // "Unknown error"')
+            echo "❌ Failed to send Telegram notification. Error: $ERROR_DESC"
+          fi
+        else
+          echo "❌ Notification message file not found at $CI_PROJECT_DIR/notification_message.txt"
+        fi
+      else
+        echo "⚠️ TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing. Skipping Telegram notification."
+      fi
+  artifacts:
+    paths:
+      - $CI_PROJECT_DIR/notification_message.txt
+    when: always
+
+
+
+build:uat:
+  extends: .build_template
+  variables:
+    ENV: uat
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "uat"'
+      when: always
+  after_script:
+    - echo "BUILD_JOB_STATUS=$CI_JOB_STATUS" >> job_status.env
+  artifacts:
+    paths:
+      - job_status.env
+
+deploy:uat:
+  extends: .deploy_template
+  variables:
+    ENV: uat
+    DEPLOY_SERVER: $DEPLOY_UAT_SERVER
+    ANSIBLE_INVENTORY: $UAT_ANSIBLE_INVENTORY
+  needs:
+    - job: build:uat
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "uat"'
+      when: always
+  environment:
+    name: uat
+    url: $UAT_URL
+
+notify:uat:
+  extends: .notify_template
+  variables:
+    ENV: uat
+    TELEGRAM_CHAT_ID: $UAT_TELEGRAM_CHAT_ID
+    TELEGRAM_BOT_TOKEN: $UAT_TELEGRAM_BOT_TOKEN
+  needs:
+    - job: build:uat
+      artifacts: true
+      optional: true
+    - job: deploy:uat
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "uat"'
+      when: always
+    - if: '$DEPLOY_MANUALLY_RERUN == "true"'
+      when: always
+  script:
+    - |
+      if [ -f build_status.env ]; then
+        source build_status.env
+      else
+        BUILD_JOB_STATUS="unknown"
+      fi
+      if [ -f deploy_status.env ]; then
+        source deploy_status.env
+      else
+        DEPLOY_JOB_STATUS="unknown"
+      fi
+      echo "BUILD_JOB_STATUS=$BUILD_JOB_STATUS"
+      echo "DEPLOY_JOB_STATUS=$DEPLOY_JOB_STATUS"
+      echo "DEPLOY_MANUALLY_RERUN=$DEPLOY_MANUALLY_RERUN"
+    - chmod +x notify.sh
+    - ./notify.sh
+
+build:prod:
+  extends: .build_template
+  variables:
+    ENV: prod
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+      when: always
+  after_script:
+    - echo "BUILD_JOB_STATUS=$CI_JOB_STATUS" >> job_status.env
+  artifacts:
+    paths:
+      - job_status.env
+
+deploy:prod:
+  extends: .deploy_template
+  variables:
+    ENV: prod
+    DEPLOY_SERVER: $DEPLOY_PROD_SERVER
+    ANSIBLE_INVENTORY: $PROD_ANSIBLE_INVENTORY
+  needs:
+    - job: build:prod
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+      when: always
+  environment:
+    name: prod
+    url: $PROD_URL
+
+notify:prod:
+  extends: .notify_template
+  variables:
+    ENV: prod
+    TELEGRAM_CHAT_ID: $PROD_TELEGRAM_CHAT_ID
+    TELEGRAM_BOT_TOKEN: $PROD_TELEGRAM_BOT_TOKEN
+  needs:
+    - job: build:prod
+      artifacts: true
+      optional: true
+    - job: deploy:prod
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+      when: always
+    - if: '$DEPLOY_MANUALLY_RERUN == "true"'
+      when: always
+  script:
+    - |
+      if [ -f build_status.env ]; then
+        source build_status.env
+      else
+        BUILD_JOB_STATUS="unknown"
+      fi
+      if [ -f deploy_status.env ]; then
+        source deploy_status.env
+      else
+        DEPLOY_JOB_STATUS="unknown"
+      fi
+      echo "BUILD_JOB_STATUS=$BUILD_JOB_STATUS"
+      echo "DEPLOY_JOB_STATUS=$DEPLOY_JOB_STATUS"
+      echo "DEPLOY_MANUALLY_RERUN=$DEPLOY_MANUALLY_RERUN"
+    - chmod +x notify.sh
+    - ./notify.sh
+
+  
+build:staging:
+  extends: .build_template
+  variables:
+    ENV: staging
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+      when: always
+  after_script:
+    - echo "BUILD_JOB_STATUS=$CI_JOB_STATUS" >> job_status.env
+  artifacts:
+    paths:
+      - job_status.env
+
+deploy:staging:
+  extends: .deploy_template
+  variables:
+    ENV: staging
+    DEPLOY_SERVER: $DEPLOY_STAGING_SERVER
+    ANSIBLE_INVENTORY: $STAGING_ANSIBLE_INVENTORY
+  needs:
+    - job: build:staging
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+      when: always
+  environment:
+    name: staging
+    url: $STAGING_URL
+
+notify:staging:
+  extends: .notify_template
+  variables:
+    ENV: staging
+    TELEGRAM_CHAT_ID: $STAGING_TELEGRAM_CHAT_ID
+    TELEGRAM_BOT_TOKEN: $STAGING_TELEGRAM_BOT_TOKEN
+  needs:
+    - job: build:staging
+      artifacts: true
+      optional: true
+    - job: deploy:staging
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+      when: always
+    - if: '$DEPLOY_MANUALLY_RERUN == "true"'
+      when: always
+  script:
+    - |
+      if [ -f build_status.env ]; then
+        source build_status.env
+      else
+        BUILD_JOB_STATUS="unknown"
+      fi
+      if [ -f deploy_status.env ]; then
+        source deploy_status.env
+      else
+        DEPLOY_JOB_STATUS="unknown"
+      fi
+      echo "BUILD_JOB_STATUS=$BUILD_JOB_STATUS"
+      echo "DEPLOY_JOB_STATUS=$DEPLOY_JOB_STATUS"
+      echo "DEPLOY_MANUALLY_RERUN=$DEPLOY_MANUALLY_RERUN"
+    - chmod +x notify.sh
+    - ./notify.sh

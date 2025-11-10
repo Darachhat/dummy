@@ -8,40 +8,44 @@
     ></div>
 
     <!-- Sidebar -->
-    <aside
-      :class="[
-        'bg-white rounded-xl m-3 shadow-sm z-40 transform transition-transform duration-300 ease-in-out fixed md:static md:translate-x-0 h-full w-64 flex flex-col justify-between p-6',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-      ]"
-    >
-      <div>
-        <div class="flex items-center justify-between mb-8">
-          <h1 class="text-2xl font-bold text-gray-800">DummyBank</h1>
-          <button
-            v-if="!isDesktop"
-            @click="sidebarOpen = false"
-            class="text-gray-500 hover:text-gray-800 md:hidden"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <nav class="space-y-3">
-          <SidebarItem label="Home" icon="Home" to="/" :collapsed="!isDesktop"  />
-          <SidebarItem label="Payments" icon="CreditCard" to="/payment/start" :collapsed="!isDesktop"  />
-          <SidebarItem label="Transactions" icon="List" to="/transactions" :collapsed="!isDesktop"  />
-          <SidebarItem label="Accounts" icon="User" to="/accounts" :collapsed="!isDesktop"  />
-        </nav>
+   <aside
+  :class="[
+    'bg-white shadow-sm z-40 transform transition-transform duration-300 ease-in-out fixed md:static md:translate-x-0',
+    'h-screen md:h-auto w-64 flex flex-col justify-between p-6 md:min-h-screen', // ✅ full height
+    'rounded-none md:rounded-xl', // smooth on desktop, flat on mobile
+    sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+  ]"
+>
+  <div class="flex-1 flex flex-col justify-between">
+    <div>
+      <div class="flex items-center justify-between mb-8">
+        <h1 class="text-2xl font-bold text-gray-800">DummyBank</h1>
+        <button
+          v-if="!isDesktop"
+          @click="sidebarOpen = false"
+          class="text-gray-500 hover:text-gray-800 md:hidden"
+        >
+          <X class="w-5 h-5" />
+        </button>
       </div>
 
-      <button
-        @click="logout"
-        class="flex items-center gap-2 text-gray-500 hover:text-red-600 transition mt-8"
-      >
-        <LogOut class="w-5 h-5" />
-        <span>Logout</span>
-      </button>
-    </aside>
+      <nav class="space-y-3 flex-1">
+        <SidebarItem label="Home" icon="Home" to="/" :collapsed="!isDesktop" />
+        <SidebarItem label="Payments" icon="CreditCard" to="/payment/start" :collapsed="!isDesktop" />
+        <SidebarItem label="Transactions" icon="List" to="/transactions" :collapsed="!isDesktop" />
+        <SidebarItem label="Accounts" icon="User" to="/accounts" :collapsed="!isDesktop" />
+      </nav>
+    </div>
+
+    <button
+      @click="logout"
+      class="flex items-center gap-2 text-gray-500 hover:text-red-600 transition mt-8"
+    >
+      <LogOut class="w-5 h-5" />
+      <span>Logout</span>
+    </button>
+  </div>
+</aside>
 
     <!-- Main content -->
     <main class="flex-1 flex flex-col p-4 md:p-8 w-full relative">

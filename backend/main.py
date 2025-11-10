@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from decimal import Decimal
-from passlib.hash import bcrypt
 import logging
 
 from core.config import settings
+from core.security import hash_password
 from db.base import Base
 from db.session import engine, SessionLocal
 
@@ -52,8 +52,8 @@ def seed_data():
         if not user:
             user = User(
                 phone="069382165",
-                password_hash=bcrypt.hash("admin123"),
-                pin_hash=bcrypt.hash("1234"),
+                password_hash=hash_password("admin123"),
+                pin_hash=hash_password("1234"),
             )
             db.add(user)
             db.flush()
