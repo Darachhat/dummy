@@ -1,22 +1,3 @@
-<<<<<<< HEAD
-# deps
-node_modules/
-
-# nuxt build/cache
-.nuxt/
-.output/
-.cache/
-dist/
-
-# env & logs
-.env
-*.log
-
-# misc
-.DS_Store
-.idea/
-.vscode/
-=======
 # Nuxt dev/build outputs
 .output
 .data
@@ -76,4 +57,3 @@ coverage/
 playwright-report/
 test-results/
 
->>>>>>> dev

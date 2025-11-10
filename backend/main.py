@@ -15,6 +15,7 @@ from api.routes import accounts as accounts_routes
 from api.routes import payments as payments_routes
 from api.routes import transactions as transactions_routes
 from api.routes import services as services_routes
+from api.routes.admin import user_management, service_management, transaction_management, payment_management
 
 # Models
 from models.user import User
@@ -51,9 +52,11 @@ def seed_data():
         user = db.query(User).filter_by(phone="069382165").first()
         if not user:
             user = User(
+                name="System Admin",
                 phone="069382165",
                 password_hash=hash_password("admin123"),
                 pin_hash=hash_password("1234"),
+                role="admin",
             )
             db.add(user)
             db.flush()
@@ -93,6 +96,10 @@ app.include_router(accounts_routes.router)
 app.include_router(payments_routes.router)
 app.include_router(transactions_routes.router)
 app.include_router(services_routes.router)
+app.include_router(user_management.router)
+app.include_router(service_management.router)
+app.include_router(transaction_management.router)
+app.include_router(payment_management.router)
 
 
 @app.get("/")

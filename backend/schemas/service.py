@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 
-class ServiceOut(BaseModel):
+class ServiceSchema(BaseModel):
     id: int
     name: str
     code: str

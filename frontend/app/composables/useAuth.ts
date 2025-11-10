@@ -1,6 +1,5 @@
 export const useAuth = () => {
-  const { $api, token } = useNuxtApp()
-  const token = $token
+  const { $api, $token } = useNuxtApp()
   const me = useState<any>('me', () => null)
 
   const login = async (phone: string, password: string) => {
@@ -9,23 +8,15 @@ export const useAuth = () => {
         method: 'POST',
         body: { phone, password }
       })
-
-      // Save token globally
-      token.value = res.access_token
-      localStorage.setItem('token', res.access_token)
-
-      // Fetch user info
+      $token.value = res.access_token
       await fetchMe()
-
-      // Redirect to home
-      navigateTo('/')
     } catch (err) {
       throw new Error('Invalid credentials')
     }
   }
 
   const logout = () => {
-    token.value = null
+    $token.value = null
     localStorage.removeItem('token')
     me.value = null
     navigateTo('/login')
@@ -39,7 +30,7 @@ export const useAuth = () => {
     }
   }
 
-  const isLoggedIn = computed(() => !!token.value)
+  const isLoggedIn = computed(() => !!$token.value)
 
   return { me, login, logout, fetchMe, isLoggedIn }
 }

@@ -11,7 +11,7 @@
    <aside
   :class="[
     'bg-white shadow-sm z-40 transform transition-transform duration-300 ease-in-out fixed md:static md:translate-x-0',
-    'h-screen md:h-auto w-64 flex flex-col justify-between p-6 md:min-h-screen', // ✅ full height
+    'h-screen md:h-auto w-64 flex flex-col justify-between p-6 md:min-h-screen', 
     'rounded-none md:rounded-xl', // smooth on desktop, flat on mobile
     sidebarOpen ? 'translate-x-0' : '-translate-x-full',
   ]"
