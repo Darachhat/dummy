@@ -2,15 +2,16 @@
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
   const base = config.public.apiBase
+
+  // Restore token from localStorage on startup
   const token = useState<string | null>('token', () => {
-    //Restore token from localStorage on load
     if (process.client) {
       return localStorage.getItem('token')
     }
     return null
   })
 
-  //  Watch token and persist it
+  // Watch for token changes
   if (process.client) {
     watch(token, (val) => {
       if (val) localStorage.setItem('token', val)
@@ -19,21 +20,37 @@ export default defineNuxtPlugin(() => {
   }
 
   const $api = async (path: string, opts: any = {}) => {
-    opts.headers = opts.headers || {}
-    if (token.value) {
-      opts.headers.Authorization = `Bearer ${token.value}`
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(opts.headers || {}),
     }
+
+    if (token.value) {
+      headers['Authorization'] = `Bearer ${token.value}`
+    }
+
+    const options = {
+      method: opts.method || 'GET',
+      headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    }
+
     try {
-  return await $fetch(base + path, opts)
-} catch (e: any) {
-  if (e.response?.status === 401) {
-    localStorage.removeItem('token')
-    navigateTo('/login')
+      return await $fetch(`${base}${path}`, options)
+    } catch (e: any) {
+      if (e?.response?.status === 401) {
+        localStorage.removeItem('token')
+        token.value = null
+        navigateTo('/login')
+      }
+      throw e
+    }
   }
-  throw e
-}
 
+  return {
+    provide: {
+      api: $api,
+      token,
+    },
   }
-
-  return { provide: { api: $api, token } }
 })

@@ -1,0 +1,52 @@
+# Node modules
+node_modules
+
+# Nuxt build directories
+.nuxt
+.output
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+docs
+
+# CI/CD
+.gitlab-ci.yml
+build.sh
+deploy.sh
+check_changes.sh
+notify.sh
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.md
+!package.json
+!package-lock.json

@@ -251,8 +251,18 @@ const handleAction = (action: any) => {
 }
 
 onMounted(async () => {
+  // Wait until token is restored
+  const storedToken = localStorage.getItem('token')
+  if (!storedToken) {
+    console.warn('No token found, redirecting to login')
+    return navigateTo('/login')
+  }
+
   try {
+    // Fetch user info
     const me = await $api('/me/')
+    if (!me) throw new Error('Unauthorized')
+
     balance.value = me.total_balance || 0
     const accounts = me.accounts || []
     if (accounts.length > 0) {
@@ -261,12 +271,19 @@ onMounted(async () => {
       accountType.value = accounts[0].type
     }
 
+    // Fetch recent transactions
     const txs = await $api('/transactions/')
-    transactions.value = txs.slice(0, 5)
-  } catch (err) {
+    transactions.value = Array.isArray(txs) ? txs.slice(0, 5) : []
+  } catch (err: any) {
     console.error('Failed to load dashboard', err)
+    // Handle expired/invalid token safely
+    if (err?.response?.status === 401) {
+      localStorage.removeItem('token')
+      navigateTo('/login')
+    }
   }
 })
+
 
 const maskedAccountNumber = computed(() =>
   accountNumber.value
