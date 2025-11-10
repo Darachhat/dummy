@@ -1,7 +1,7 @@
 // frontend/plugins/api.ts
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
-  const base = config.public.apiBase
+  const base =config.public.apiBase ||process.env.NUXT_PUBLIC_API_BASE
 
   // Restore token from localStorage on startup
   const token = useState<string | null>('token', () => {

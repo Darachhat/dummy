@@ -1,5 +1,6 @@
 export const useAuth = () => {
-  const { $api, token } = useNuxtApp()   // ✅ fixed name
+  const { $api, token } = useNuxtApp()
+  const token = $token
   const me = useState<any>('me', () => null)
 
   const login = async (phone: string, password: string) => {

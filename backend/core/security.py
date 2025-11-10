@@ -16,7 +16,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_token(sub: int):
     payload = {
-        "sub": sub,
+        "sub": str(sub),
         "iat": datetime.utcnow(),
         "exp": datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     }
@@ -24,7 +24,7 @@ def create_token(sub: int):
 
 def create_token_specific(sub: int):
     payload = {
-        "sub": sub,
+        "sub": str(sub),
         "iat": datetime.utcnow(),
         "exp": datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     }
