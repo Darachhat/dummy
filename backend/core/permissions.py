@@ -1,13 +1,15 @@
-from fastapi_permissions import Allow, Authenticated, configure_permissions
 from fastapi import Depends, HTTPException, status
 from jose import jwt, JWTError
 from fastapi.security import OAuth2PasswordBearer
+from fastapi_permissions import Allow, Authenticated, configure_permissions
 from db.session import SessionLocal
 from models.user import User
 from core.config import settings
 
+# Token scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
+# --- Database session dependency ---
 def get_db():
     db = SessionLocal()
     try:
@@ -15,8 +17,9 @@ def get_db():
     finally:
         db.close()
 
+# --- Authentication: get current user ---
 def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
-    """Decode JWT token and return current user."""
+    """Decode JWT and fetch the current user."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired token",
@@ -34,6 +37,17 @@ def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
         raise credentials_exception
     return user
 
+# --- Role-based check (admin only) ---
+def require_admin(current_user: User = Depends(get_current_user)):
+    """Allow only admin users."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
+
+# --- Permission System (for fine-grained control) ---
 def get_user_principals(user: User):
     """Return permission principals based on the user."""
     principals = [Authenticated]
@@ -42,11 +56,11 @@ def get_user_principals(user: User):
         principals.append(f"role:{user.role}")
     return principals
 
-# Base permission factory
-_permission_factory = configure_permissions(get_user_principals)
+permission_factory = configure_permissions(get_user_principals)
 
-# ✅ Wrapper function that returns a callable for FastAPI Depends
-def Permission(perm: str, model):
+def Permission(permission_name: str, model):
+    """Permission dependency for routes."""
     def dependency(user: User = Depends(get_current_user)):
-        return _permission_factory(perm, model)(user)
+        checker = permission_factory(permission_name, model)
+        return checker(user)
     return dependency

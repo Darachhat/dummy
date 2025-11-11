@@ -1,9 +1,8 @@
-// frontend/plugins/api.ts
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
   const base = config.public.apiBase
 
-  // Restore token from localStorage on startup
+  // Keep token reactive and persistent across page reloads
   const token = useState<string | null>('token', () => {
     if (process.client) {
       return localStorage.getItem('token')
@@ -11,7 +10,7 @@ export default defineNuxtPlugin(() => {
     return null
   })
 
-  // Watch for token changes
+  // Keep localStorage in sync with reactive token
   if (process.client) {
     watch(token, (val) => {
       if (val) localStorage.setItem('token', val)
@@ -19,12 +18,14 @@ export default defineNuxtPlugin(() => {
     })
   }
 
+  // Main API handler
   const $api = async (path: string, opts: any = {}) => {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(opts.headers || {}),
     }
 
+    // Attach token if available
     if (token.value) {
       headers['Authorization'] = `Bearer ${token.value}`
     }
@@ -36,13 +37,27 @@ export default defineNuxtPlugin(() => {
     }
 
     try {
-      return await $fetch(`${base}${path}`, options)
+      // Ensure consistent path structure
+      const url = path.startsWith('http') ? path : `${base}${path}`
+      return await $fetch(url, options)
     } catch (e: any) {
-      if (e?.response?.status === 401) {
-        localStorage.removeItem('token')
-        token.value = null
-        navigateTo('/login')
+      const status = e?.response?.status
+
+      // Handle unauthorized → redirect to login
+      if (status === 401) {
+        if (process.client) {
+          localStorage.removeItem('token')
+          token.value = null
+          navigateTo('/login')
+        }
       }
+
+      // Optional: handle 403 Forbidden (for admin pages)
+      if (status === 403 && process.client) {
+        console.warn('Access denied — admin only')
+        navigateTo('/')
+      }
+
       throw e
     }
   }

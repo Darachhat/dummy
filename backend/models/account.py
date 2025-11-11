@@ -1,3 +1,4 @@
+#backend\models\account.py
 from sqlalchemy import Column, Integer, String, ForeignKey, Numeric
 from sqlalchemy.orm import relationship
 from db.base import Base

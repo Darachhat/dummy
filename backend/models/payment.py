@@ -1,3 +1,4 @@
+#backend\models\payment.py
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Numeric
 from datetime import datetime
 from sqlalchemy.orm import relationship
