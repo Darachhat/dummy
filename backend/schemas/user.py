@@ -5,28 +5,23 @@ from decimal import Decimal
 from datetime import datetime
 from .account import AccountOut
 
-
-class MeOut(BaseModel):
-    """Response schema for /me endpoint."""
-    user: dict
-    total_balance: Decimal
-    accounts: List[AccountOut]
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    role: Optional[str] = None
 
 
 class UserBase(BaseModel):
-    """Shared base for user models."""
     name: str
     phone: str
     role: Optional[str] = "user"
 
 
 class UserCreate(UserBase):
-    """Used when creating a new user (from admin)."""
-    password: str  # plaintext input, will be hashed before saving
+    password: str
 
 
 class UserOut(UserBase):
-    """Response schema for reading user info."""
     id: int
     created_at: Optional[datetime] = None
 
@@ -35,6 +30,5 @@ class UserOut(UserBase):
 
 
 class UserLogin(BaseModel):
-    """Used for login requests."""
     phone: str
     password: str

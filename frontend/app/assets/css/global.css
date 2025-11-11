@@ -1,3 +1,6 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
 .dotted-divider {
   height: 2px;
   border: none;
@@ -7,4 +10,15 @@
   display: block;
   width: 100%;
   margin: 0.1rem 0;
+}
+
+:root {
+  --ui-bg: #ffffff;           /* Default background */
+  --ui-bg-muted: #f9fafb;     /* Cards / table backgrounds */
+  --ui-border: #e5e7eb;       /* Border gray */
+}
+
+body {
+  background-color: var(--ui-bg);
+  color: #111827;
 }

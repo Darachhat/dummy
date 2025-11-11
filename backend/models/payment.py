@@ -27,6 +27,7 @@ class Payment(Base):
     reversal_acknowledgement_id = Column(String, nullable=True)
     status = Column(String, default="started")
     created_at = Column(DateTime, default=datetime.utcnow)
+    confirmed_at = Column(DateTime, nullable=True)
 
     account = relationship("Account", back_populates="payments")
     service = relationship("Service", back_populates="payments")

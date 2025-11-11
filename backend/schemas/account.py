@@ -1,6 +1,7 @@
 #backend\schemas\account.py
 from pydantic import BaseModel
 from decimal import Decimal
+from typing import Optional
 
 class AccountOut(BaseModel):
     id: int
@@ -10,5 +11,17 @@ class AccountOut(BaseModel):
     currency: str
 
 
+    class Config:
+        from_attributes = True
+
+class AccountUpdate(BaseModel):
+    balance: Decimal
+
+class AccountRowOut(BaseModel):
+    id: int
+    account_number: str
+    balance: Decimal
+    currency: str
+    status: Optional[str] = "active"
     class Config:
         from_attributes = True

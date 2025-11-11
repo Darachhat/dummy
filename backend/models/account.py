@@ -10,7 +10,7 @@ class Account(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
-    number = Column(String, unique=True, nullable=False)
+    number = Column(String, unique=True, nullable=False, index=True)
     balance = Column(Numeric(12, 2), default=Decimal("0.00"))
     currency = Column(String, default="USD")
 

@@ -5,6 +5,15 @@ from typing import Optional
 from datetime import datetime
 from core.utils.timezone import to_local_time
 
+class PaymentRowOut(BaseModel):
+    id: int
+    method: Optional[str] = None
+    amount: Decimal
+    currency: str
+    created_at: str
+    class Config:
+        from_attributes = True
+
 
 class PaymentStartOut(BaseModel):
     payment_id: int
@@ -32,7 +41,7 @@ class PaymentConfirmOut(BaseModel):
     cdc_transaction_datetime: Optional[datetime] = None 
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
     # Custom dict override for timezone formatting
     def dict(self, *args, **kwargs):

@@ -21,3 +21,13 @@ class TransactionOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TransactionRowOut(BaseModel):
+    id: int
+    type: Optional[str] = None
+    amount: Decimal
+    currency: str
+    created_at: str
+    class Config:
+        from_attributes = True
