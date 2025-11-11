@@ -1,19 +1,18 @@
 <template>
-  <div class="flex min-h-screen bg-[var(--ui-bg-muted)]">
+  <div class="flex min-h-screen">
     <!-- Sidebar -->
     <aside
-      :class="[ 
-        'bg-[var(--ui-bg)] border-r border-[var(--ui-border)] shadow-sm z-40 transform transition-transform duration-300 ease-in-out fixed md:static md:translate-x-0',
+      :class="[
+        'border-r shadow-sm z-40 transform transition-transform duration-300 ease-in-out fixed md:static md:translate-x-0',
         'h-screen md:h-auto w-64 flex flex-col justify-between p-6',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       ]"
     >
       <div>
         <div class="flex items-center justify-between mb-8">
-          <h1 class="text-2xl font-bold text-[var(--ui-text)]">Dummy Admin</h1>
+          <h1 class="text-2xl font-bold ">Dummy Admin</h1>
           <UButton
             v-if="!isDesktop"
-            color="neutral"
             variant="ghost"
             icon="i-lucide-x"
             @click="sidebarOpen = false"
@@ -43,14 +42,14 @@
     <!-- Main -->
     <main class="flex-1 p-4 md:p-8 overflow-x-hidden">
       <!-- Mobile Navbar -->
-      <div class="flex items-center md:hidden mb-6 sticky top-0 bg-[var(--ui-bg-muted)] z-20">
+      <div class="flex items-center md:hidden mb-6 sticky top-0  z-20">
         <UButton icon="i-lucide-menu" color="neutral" variant="ghost" @click="sidebarOpen = true" />
         <h2 class="ml-3 text-lg font-semibold">User Management</h2>
       </div>
 
       <!-- Header -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-3">
-        <h2 class="text-2xl font-bold text-[var(--ui-text-strong)]">User Management</h2>
+        <h2 class="text-2xl font-bold ">User Management</h2>
         <div class="flex flex-wrap items-center gap-3">
           <UInput
             v-model.trim="q"
@@ -59,89 +58,73 @@
             class="w-64"
             @keyup.enter="refreshList"
           />
-          <UButton label="Search" color="neutral" @click="refreshList" />
-          <UButton label="+ Create User" color="primary" @click="showCreate = true" />
+          <UButton color="#162556 border-1 border-[#162556]" label="Search" @click="refreshList" />
+          <UButton color="#162556 border-1 border-[#162556]" label="+ Create User" @click="showCreate = true" />
         </div>
       </div>
 
-      <!-- User Table -->
-      <UCard class="shadow-sm border rounded-xl overflow-hidden">
-        <UTable
-          :rows="userRows"
-          :columns="columns"
-          :loading="pending"
-          loading-text="Loading users..."
-          empty-text="No users found."
-          :sort="sort"
-          striped
-          hover
-          compact
-          class="min-w-full"
-          @update:sort="onSortChange"
-        >
-          <template #role-data="{ row }">
-            <UBadge :label="row.role || 'user'" color="neutral" />
-          </template>
-
-          <template #created_at-data="{ row }">
-            {{ formatDate(row.created_at) }}
-          </template>
-
-          <template #actions-data="{ row }">
-            <div class="flex gap-2 justify-end">
-              <UButton
-                label="View"
-                size="xs"
-                color="neutral"
-                variant="outline"
-                :to="`/admin/users/${row.id}`"
-              />
-              <UButton
-                label="Edit"
-                size="xs"
-                color="primary"
-                variant="outline"
-                :to="`/admin/users/${row.id}?edit=1`"
-              />
-              <UButton
-                label="Delete"
-                size="xs"
-                color="red"
-                variant="outline"
-                :loading="deletingId === row.id"
-                @click="onDelete(row)"
-              />
-            </div>
-          </template>
-        </UTable>
-
-        <!-- Pagination -->
-        <template #footer>
-          <div class="flex justify-between items-center text-sm text-gray-600 mt-3">
-            <span>
-              Showing {{ userRows.length }} of {{ total }} users — Page {{ page }} / {{ totalPages }}
-            </span>
-            <div class="flex gap-2">
-              <UButton
-                label="Prev"
-                size="xs"
-                color="neutral"
-                variant="outline"
-                :disabled="page <= 1 || pending"
-                @click="go(page - 1)"
-              />
-              <UButton
-                label="Next"
-                size="xs"
-                color="neutral"
-                variant="outline"
-                :disabled="page >= totalPages || pending"
-                @click="go(page + 1)"
-              />
-            </div>
+     <!-- USERS TABLE -->
+<UCard class="shadow-sm border rounded-xl overflow-hidden">
+  <UTable
+    :data="users"
+    class="min-w-full"
+  >
+    <template v-slot:default="{ row }">
+      <tr class="border-b ">
+        <td class="p-3">{{ row.id }}</td>
+        <td class="p-3 font-medium">{{ row.name || '-' }}</td>
+        <td class="p-3">{{ row.phone || '-' }}</td>
+        <td class="p-3">
+          <UBadge :label="row.role || 'user'"/>
+        </td>
+        <td class="p-3">{{ formatDate(row.created_at) }}</td>
+        <td class="p-3 text-right">
+          <div class="flex gap-2 justify-end">
+            <UButton
+              label="View"
+              :to="`/admin/users/${row.id}`"
+            />
+            <UButton
+              label="Edit"
+              :to="`/admin/users/${row.id}?edit=1`"
+            />
+            <UButton
+              label="Delete"
+              :loading="deletingId === row.id"
+              @click="onDelete(row)"
+            />
           </div>
-        </template>
-      </UCard>
+        </td>
+      </tr>
+    </template>
+  </UTable>
+
+  <!-- Pagination -->
+  <template #footer>
+    <div class="flex justify-between items-center text-sm text-gray-600 mt-3">
+      <span>
+        Showing {{ users.length }} of {{ total }} users — Page {{ page }} / {{ totalPages }}
+      </span>
+      <div class="flex gap-2">
+        <UButton
+          label="Prev"
+          color="neutral"
+          variant="outline"
+          :disabled="page <= 1 || pending"
+          @click="go(page - 1)"
+        />
+        <UButton
+          label="Next"
+          color="info"
+          
+          :disabled="page >= totalPages || pending"
+          @click="go(page + 1)"
+        />
+      </div>
+    </div>
+  </template>
+</UCard>
+
 
       <!-- Create User Modal -->
       <UModal v-model="showCreate" title="Create New User">
@@ -199,16 +182,16 @@ const pageSize = 10
 const total = ref(0)
 const users = ref<any[]>([])
 const pending = ref(false)
-const userRows = computed(() => users.value ?? [])
 
 const columns = [
-  { id: 'id', label: 'ID', sortable: true },
-  { id: 'name', label: 'Name', sortable: true },
-  { id: 'phone', label: 'Phone', sortable: true },
-  { id: 'role', label: 'Role', sortable: true },
-  { id: 'created_at', label: 'Created', sortable: true },
-  { id: 'actions', label: 'Actions' },
+  { id: 'id', header: 'ID', accessorKey: 'id', sortable: true },
+  { id: 'name', header: 'Name', accessorKey: 'name', sortable: true },
+  { id: 'phone', header: 'Phone', accessorKey: 'phone', sortable: true },
+  { id: 'role', header: 'Role', accessorKey: 'role', sortable: true },
+  { id: 'created_at', header: 'Created', accessorKey: 'created_at', sortable: true },
+  { id: 'actions', header: 'Actions' },
 ]
+
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
@@ -224,7 +207,7 @@ const newUser = reactive({
   role: 'user',
 })
 
-// --- Load Users ---
+// --- Fetch users ---
 async function load() {
   pending.value = true
   try {
@@ -237,9 +220,10 @@ async function load() {
         dir: sort.value.direction,
       },
     })
-    const data = res?.data ?? res
-    users.value = data.items ?? []
-    total.value = data.total ?? users.value.length
+
+    // Handle backend response
+    users.value = res.items ?? []
+    total.value = res.total ?? users.value.length
   } catch (err) {
     console.error('Failed to load users:', err)
     toast.add({ title: 'Failed to load users', color: 'red' })
@@ -250,27 +234,43 @@ async function load() {
   }
 }
 
-// --- Create ---
 async function createUser() {
   if (!newUser.name || !newUser.phone || !newUser.password) {
-    toast.add({ title: 'All fields required', color: 'orange' })
+    toast.add({ title: 'All fields are required', color: 'orange' })
     return
   }
+
   creating.value = true
   try {
-    await $api('/admin/users', { method: 'POST', body: newUser })
-    toast.add({ title: 'User created', color: 'green' })
+    const payload = {
+      name: newUser.name.trim(),
+      phone: newUser.phone.trim(),
+      password: newUser.password.trim(),
+      role: newUser.role,
+    }
+
+    const res = await $api('/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    if (res?.id) toast.add({ title: 'User created successfully', color: 'green' })
+    else toast.add({ title: 'Failed to create user', color: 'red' })
+
     Object.assign(newUser, { name: '', phone: '', password: '', role: 'user' })
     showCreate.value = false
     await load()
-  } catch {
+  } catch (err) {
+    console.error(err)
     toast.add({ title: 'Create failed', color: 'red' })
   } finally {
     creating.value = false
   }
 }
 
-// --- Delete ---
+
+// --- Delete user ---
 async function onDelete(u: any) {
   if (!confirm(`Delete ${u.name || u.phone}?`)) return
   deletingId.value = u.id
@@ -285,32 +285,32 @@ async function onDelete(u: any) {
   }
 }
 
+// --- Pagination controls ---
 function go(p: number) {
   page.value = Math.min(Math.max(1, p), totalPages.value)
   load()
 }
-
 function refreshList() {
   page.value = 1
   load()
 }
 
-function formatDate(date?: string) {
-  return date ? new Date(date).toLocaleString() : '-'
+// --- Sorting ---
+function onSortChange({ column, direction }: any) {
+  if (!column) return
+  sort.value = { column, direction: direction || 'asc' }
+  load()
 }
 
-function onSortChange(e: any) {
-  if (!e?.column) return
-  sort.value = { column: e.column, direction: e.direction || 'asc' }
-  load()
+// --- Date formatter ---
+function formatDate(date?: string) {
+  if (!date) return '-'
+  const d = new Date(date)
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
 }
 
 onMounted(load)
 </script>
 
 <style scoped>
-.router-link-active {
-  background-color: var(--ui-bg-muted);
-  color: var(--ui-text-strong);
-}
 </style>

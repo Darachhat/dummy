@@ -3,28 +3,14 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   ssr: false,
-  css: [
-    '~/assets/css/global.css',
-  ],
+
+  css: ['~/assets/css/global.css'],
 
   app: {
     head: {
       title: 'Dummy Bank',
       meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }]
     }
-  },
-  ui: {
-    global: true,
-    theme: {
-      colors: {
-        background: '#ffffff',  
-        primary: '#0f172a',      
-        muted: '#f9fafb',        
-        border: '#e5e7eb',      
-      },
-      radius: 'md',
-      font: 'sans',
-    },
   },
 
   runtimeConfig: {
@@ -33,11 +19,17 @@ export default defineNuxtConfig({
     }
   },
 
-  modules: [
-    '@nuxt/ui',
-  ],
+  modules: ['@nuxt/ui'],
+   ui: {
+    fonts: false,
+    colorMode: false,
 
-  build: {
-    transpile: ['@tanstack/vue-table'],
+  },
+
+  postcss: {
+    plugins: {
+      '@tailwindcss/postcss': {}, 
+      autoprefixer: {},
+    },
   },
 })

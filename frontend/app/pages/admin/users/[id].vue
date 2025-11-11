@@ -179,30 +179,31 @@ const payLoading = ref(false)
 
 // Tanstack columns
 const accountColumns = [
-  { key: 'account_number', label: 'Account Number' },
-  { key: 'balance', label: 'Balance', sortable: true },
-  { key: 'currency', label: 'Currency' },
-  { key: 'status', label: 'Status' },
+  { accessorKey: 'account_number', header: 'Account Number' },
+  { accessorKey: 'balance', header: 'Balance', enableSorting: true },
+  { accessorKey: 'currency', header: 'Currency' },
+  { accessorKey: 'status', header: 'Status' },
 ]
 
 const transactionColumns = [
-  { key: 'id', label: 'ID', sortable: true },
-  { key: 'amount', label: 'Amount', sortable: true },
-  { key: 'currency', label: 'Currency' },
-  { key: 'direction', label: 'Direction' },
-  { key: 'service_name', label: 'Service' },
-  { key: 'created_at', label: 'Date' },
+  { accessorKey: 'id', header: 'ID', enableSorting: true },
+  { accessorKey: 'amount', header: 'Amount', enableSorting: true },
+  { accessorKey: 'currency', header: 'Currency' },
+  { accessorKey: 'direction', header: 'Direction' },
+  { accessorKey: 'service_name', header: 'Service' },
+  { accessorKey: 'created_at', header: 'Date' },
 ]
 
 const paymentColumns = [
-  { key: 'id', label: 'ID', sortable: true },
-  { key: 'reference_number', label: 'Reference' },
-  { key: 'amount', label: 'Amount' },
-  { key: 'currency', label: 'Currency' },
-  { key: 'status', label: 'Status' },
-  { key: 'service_name', label: 'Service' },
-  { key: 'created_at', label: 'Date' },
+  { accessorKey: 'id', header: 'ID', enableSorting: true },
+  { accessorKey: 'reference_number', header: 'Reference' },
+  { accessorKey: 'amount', header: 'Amount' },
+  { accessorKey: 'currency', header: 'Currency' },
+  { accessorKey: 'status', header: 'Status' },
+  { accessorKey: 'service_name', header: 'Service' },
+  { accessorKey: 'created_at', header: 'Date' },
 ]
+
 
 // Computed filters
 const filteredTransactions = computed(() =>
