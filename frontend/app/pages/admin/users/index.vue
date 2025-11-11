@@ -75,6 +75,55 @@
         </div>
       </div>
 
+      <!-- Create User -->
+      <div class="flex justify-end mb-4">
+        <button
+          class="bg-gray-900 text-white px-4 py-2 rounded-lg hover:opacity-90 transition"
+          @click="showCreate = true"
+        >
+          + Create User
+        </button>
+      </div>
+
+      <!-- Create User Modal -->
+      <transition name="fade">
+        <UModal v-if="showCreate" class="rounded-2xl p-0 w-[420px] bg-white shadow-xl border">
+          <form method="dialog" class="p-6 space-y-4">
+            <h3 class="text-lg font-semibold">Create New User</h3>
+
+            <div>
+              <label class="block text-sm text-gray-600 mb-1">Name</label>
+              <input v-model="newUser.name" class="border rounded-lg w-full px-3 py-2" placeholder="User name" />
+            </div>
+
+            <div>
+              <label class="block text-sm text-gray-600 mb-1">Phone</label>
+              <input v-model="newUser.phone" class="border rounded-lg w-full px-3 py-2" placeholder="Phone number" />
+            </div>
+
+            <div>
+              <label class="block text-sm text-gray-600 mb-1">Password</label>
+              <input type="password" v-model="newUser.password" class="border rounded-lg w-full px-3 py-2" placeholder="Password" />
+            </div>
+
+            <div>
+              <label class="block text-sm text-gray-600 mb-1">Role</label>
+              <select v-model="newUser.role" class="border rounded-lg w-full px-3 py-2">
+                <option value="user">user</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3">
+              <button class="px-3 py-1 border rounded-xl" @click.prevent="showCreate = false">Cancel</button>
+              <button class="px-3 py-1 border rounded-xl bg-gray-900 text-white" @click.prevent="createUser">
+                Create
+              </button>
+            </div>
+          </form>
+        </UModal>
+      </transition>
+
       <!-- Users Table -->
       <section class="space-y-6">
         <div class="overflow-x-auto rounded-2xl border bg-white">
@@ -113,13 +162,11 @@
                 <td class="p-3 text-right space-x-2">
                   <NuxtLink :to="`/admin/users/${u.id}`" class="px-3 py-1 border rounded-xl">View</NuxtLink>
                   <NuxtLink :to="`/admin/users/${u.id}?edit=1`" class="px-3 py-1 border rounded-xl">Edit</NuxtLink>
-                  <button
-                    class="px-3 py-1 border rounded-xl"
-                    @click="onDelete(u)"
-                    :disabled="deletingId===u.id"
-                  >
+                  <button class="px-3 py-1 border rounded-xl" @click="onDelete(u)" :disabled="deletingId===u.id">
                     {{ deletingId===u.id ? 'Deleting…' : 'Delete' }}
                   </button>
+                  <button class="px-3 py-1 border rounded-xl" @click="resetPassword(u)">Reset PW</button>
+                  <button class="px-3 py-1 border rounded-xl" @click="resetPin(u)">Reset PIN</button>
                 </td>
               </tr>
               <tr v-if="!pending && users.length === 0">
@@ -156,6 +203,9 @@ const { logout } = useAuth()
 const isDesktop = ref(false)
 const sidebarOpen = ref(false)
 
+const showCreate = ref(false)
+const newUser = reactive({ name: '', phone: '', password: '', role: 'user' })
+
 onMounted(() => {
   const updateScreen = () => { isDesktop.value = window.innerWidth >= 768 }
   updateScreen()
@@ -189,6 +239,59 @@ function sortIndicator(field: string) {
   if (sort.value.field !== field) return '↕'
   return sort.value.dir === 'asc' ? '▲' : '▼'
 }
+
+async function createUser() {
+  try {
+    if (!newUser.name || !newUser.phone || !newUser.password) {
+      alert('All fields are required')
+      return
+    }
+
+    await $api('/admin/users', {
+      method: 'POST',
+      body: newUser,
+    })
+
+    alert('User created successfully')
+    showCreate.value = false
+    Object.assign(newUser, { name: '', phone: '', password: '', role: 'user' })
+    await load()
+  } catch (err) {
+    console.error(err)
+    alert('Failed to create user')
+  }
+}
+
+async function resetPassword(u: User) {
+  const ok = confirm(`Reset password for ${u.name || u.phone}? New password will be '123456'.`)
+  if (!ok) return
+  try {
+    await $api(`/admin/users/${u.id}`, {
+      method: 'PUT',
+      body: { password: '123456' },
+    })
+    alert('Password reset successfully.')
+  } catch (e) {
+    console.error(e)
+    alert('Failed to reset password.')
+  }
+}
+
+async function resetPin(u: User) {
+  const ok = confirm(`Reset PIN for ${u.name || u.phone}? New PIN will be '1234'.`)
+  if (!ok) return
+  try {
+    await $api(`/admin/users/${u.id}`, {
+      method: 'PUT',
+      body: { pin: '1234' },
+    })
+    alert('PIN reset successfully.')
+  } catch (e) {
+    console.error(e)
+    alert('Failed to reset PIN.')
+  }
+}
+
 function go(p: number) {
   page.value = Math.min(Math.max(1, p), totalPages.value || 1)
   load()
@@ -202,7 +305,6 @@ function formatDate(s?: string) { return s ? new Date(s).toLocaleString() : '-' 
 async function load() {
   pending.value = true
   try {
-    // Your backend endpoint
     const res = await $api<Paginated<User> | User[]>('/admin/users/', {
       query: {
         q: q.value || undefined,
@@ -212,10 +314,7 @@ async function load() {
         dir: sort.value.dir,
       },
     })
-    // Accept either paginated shape or plain array
-    // @ts-ignore
     users.value = Array.isArray(res) ? res : (res.items || [])
-    // @ts-ignore
     total.value = Array.isArray(res) ? users.value.length : (res.total ?? users.value.length)
   } catch (e) {
     console.error(e)
@@ -243,7 +342,6 @@ async function onDelete(u: User) {
   }
 }
 
-// initial load
 onMounted(load)
 </script>
 
@@ -251,5 +349,11 @@ onMounted(load)
 a.router-link-active {
   background-color: #f3f4f6;
   color: #111827;
+}
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 </style>

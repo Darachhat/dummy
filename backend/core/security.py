@@ -1,6 +1,6 @@
 import jwt
 import bcrypt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 from core.config import settings
 
@@ -16,17 +16,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_token(sub: int):
     payload = {
-        "sub": str(sub),
-        "iat": datetime.utcnow(),
-        "exp": datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        "sub": str(sub),  # PyJWT 2.10+ requires sub to be a string per JWT spec
+        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGO)
 
 def create_token_specific(sub: int):
     payload = {
         "sub": str(sub),
-        "iat": datetime.utcnow(),
-        "exp": datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGO)
 

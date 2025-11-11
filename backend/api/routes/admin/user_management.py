@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from decimal import Decimal
 from sqlalchemy.orm import Session, joinedload
+from core.security import hash_password
 
 from db.session import SessionLocal
 
@@ -73,9 +74,9 @@ class AccountUpdate(BaseModel):
 # --- List/Create ---
 
 @router.get("/", response_model=List[UserOut])
-def list_users(db: Session = Depends(get_db)):
-    """List all users (admin only)."""
-    return db.query(User).all()
+def get_user(db: Session = Depends(get_db)):
+    """Return All Users."""
+    return db.query(User).order_by(User.created_at.desc()).all()
 
 @router.post("/", response_model=UserOut)
 def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
@@ -87,8 +88,8 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
     new_user = User(
         name=user_data.name,
         phone=user_data.phone,
-        password_hash=user_data.password,
-        pin_hash="N/A",
+        password_hash=hash_password(user_data.password),
+        pin_hash=hash_password("1234"),
         role=user_data.role or "user",
     )
     db.add(new_user)
@@ -98,37 +99,43 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
 
 # --- Detail/Update/Delete ---
 
-@router.get("/{user_id}", response_model=UserOut)
-def get_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-
 @router.put("/{user_id}", response_model=UserOut)
-def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
+def update_user(user_id: int, update_data: UserUpdate, db: Session = Depends(get_db)):
+    user = db.get(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    if update_data.name:
+        user.name = update_data.name
+    if update_data.phone:
+        user.phone = update_data.phone
+    if update_data.role:
+        user.role = update_data.role
 
-    data = payload.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(user, k, v)
-    db.add(user)
+    #reset password
+    if update_data.password:
+        user.password_hash = hash_password(update_data.password)
+
+    #reset pin
+    if hasattr(update_data, "pin") and update_data.pin:
+        user.pin_hash = hash_password(update_data.pin)
+
     db.commit()
     db.refresh(user)
     return user
 
-@router.delete("/{user_id}", status_code=204)
+@router.delete("/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
+    user = db.get(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
     db.commit()
+    return {"message": "User deleted successfully"}
 
+# Get user account
 @router.get("/{user_id}/accounts", response_model=List[AccountRowOut])
-def user_accounts(user_id: int, db: Session = Depends(get_db)):
+def get_user_accounts(user_id: int, db: Session = Depends(get_db)):
     rows = db.query(Account).filter(Account.user_id == user_id).all()
     return [
         AccountRowOut(
