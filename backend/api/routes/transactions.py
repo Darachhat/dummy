@@ -21,7 +21,7 @@ def list_transactions(user_id: int = Depends(get_user_id), db: Session = Depends
         p = t.payment 
         results.append({
             "id": t.id,
-            "transaction_id": t.id,
+            "transaction_id": t.transaction_id,
             "reference_number": p.reference_number if p else t.reference_number,
             "description": t.description,
             "amount": float(p.amount if p else t.amount),
@@ -47,7 +47,7 @@ def get_transaction(transaction_id: int, user_id: int = Depends(get_user_id), db
     p = tx.payment
     if not p:
         return {
-            "transaction_id": tx.id,
+            "transaction_id": tx.transaction_id,
             "reference_number": tx.reference_number,
             "description": tx.description,
             "amount": float(tx.amount),
@@ -57,7 +57,7 @@ def get_transaction(transaction_id: int, user_id: int = Depends(get_user_id), db
         }
 
     return {
-        "transaction_id": tx.id,
+        "transaction_id": tx.transaction_id,
         "reference_number": p.reference_number,
         "customer_name": p.customer_name,
         "amount": float(p.amount),

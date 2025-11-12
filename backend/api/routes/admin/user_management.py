@@ -337,7 +337,7 @@ def user_transactions(
         results.append(
             TransactionOut(
                 id=t.id,
-                transaction_id=t.id,
+                transaction_id=t.transaction_id,
                 reference_number=getattr(p, "reference_number", None) if p else getattr(t, "reference_number", None),
                 description=t.description or "",
                 amount=(p.amount if p and p.amount is not None else t.amount),
@@ -393,7 +393,7 @@ def user_payments(
         results.append(
             PaymentConfirmOut(
                 status=p.status,
-                transaction_id=(p.transaction.id if getattr(p, "transaction", None) else 0),
+                transaction_id=p.transaction_id,
                 account_id=p.account_id,
                 new_balance=Decimal("0.00"),
                 reference_number=p.reference_number,
