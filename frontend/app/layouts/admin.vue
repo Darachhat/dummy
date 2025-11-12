@@ -1,9 +1,9 @@
 <template>
-  <div class="flex min-h-screen">
+  <div class="flex min h-screen">
     <!-- Sidebar -->
     <aside
       :class="[
-        'border-r shadow-sm z-40 transform transition-transform duration-300 ease-in-out fixed md:static md:translate-x-0',
+        'border-r shadow-sm bg-white z-40 transform transition-transform duration-300 ease-in-out fixed md:static md:translate-x-0',
         'h-screen md:h-auto w-64 flex flex-col justify-between p-6',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       ]"
@@ -13,6 +13,7 @@
           <h1 class="text-2xl font-bold">Dummy Admin</h1>
           <UButton
             v-if="!isDesktop"
+            color="neutral"
             variant="ghost"
             icon="i-lucide-x"
             @click="sidebarOpen = false"

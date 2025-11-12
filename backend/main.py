@@ -16,6 +16,7 @@ from api.routes import payments as payments_routes
 from api.routes import transactions as transactions_routes
 from api.routes import services as services_routes
 from api.routes.admin import user_management, service_management, transaction_management, payment_management
+from api.routes.admin.accounts import accounts_router
 
 # Models
 from models.user import User
@@ -100,6 +101,7 @@ app.include_router(user_management.router)
 app.include_router(service_management.router)
 app.include_router(transaction_management.router)
 app.include_router(payment_management.router)
+app.include_router(accounts_router)
 
 
 @app.get("/")

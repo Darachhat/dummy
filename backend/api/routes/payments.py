@@ -234,6 +234,7 @@ async def confirm_payment(
             raise HTTPException(status_code=400, detail="OSP confirm failed")
 
         payment.status = "confirmed"
+        payment.confirmed_at = datetime.utcnow()
         db.commit()
 
         # --- Prepare local time for UI ---

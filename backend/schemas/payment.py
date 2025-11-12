@@ -28,7 +28,7 @@ class PaymentStartOut(BaseModel):
 
 class PaymentConfirmOut(BaseModel):
     status: str
-    transaction_id: int
+    transaction_id: Optional[str] = None
     account_id: int
     new_balance: Decimal
     reference_number: str

@@ -1,11 +1,11 @@
 <template>
   <!-- Header -->
   <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-3">
-    <h2 class="text-2xl font-bold">User Management</h2>
+    <h2 class="text-2xl hidden md:block font-bold">User Management</h2>
     <div class="flex flex-wrap items-center gap-3">
       <UButton
         variant="solid"
-        color="info"
+        class="btn-dark"
         label="+ Create User"
         @click="showCreate = true"
       />
@@ -44,7 +44,7 @@
         <span>Showing {{ users.length }} of {{ total }} users — Page {{ page }} / {{ totalPages }}</span>
         <div class="flex gap-2">
           <UButton label="Prev" color="neutral" variant="outline" :disabled="page<=1 || pending" @click="go(page-1)" />
-          <UButton label="Next" color="info" :disabled="page>=totalPages || pending" @click="go(page+1)" />
+          <UButton label="Next" class="btn-dark" :disabled="page>=totalPages || pending" @click="go(page+1)" />
         </div>
       </div>
     </template>
@@ -54,16 +54,24 @@
   <UModal v-model:open="showCreate" title="Create New User">
     <template #body>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-2">
-        <UInput v-model="newUser.name" icon="i-lucide-user" color="info" placeholder="Enter user name" size="lg" />
-        <UInput v-model="newUser.phone" icon="i-lucide-phone" type="tel" color="info" placeholder="Enter phone number" size="lg" />
-        <UInput v-model="newUser.password" icon="i-lucide-lock" type="password" color="info" placeholder="Enter password" size="lg" />
-        <USelect v-model="newUser.role" color="info" :items="[{label:'User',value:'user'},{label:'Admin',value:'admin'}]" placeholder="Select role" size="lg" />
+        <UFormField label="Name" >
+          <UInput v-model="newUser.name" icon="i-lucide-user" color="neutral" placeholder="Enter user name" size="lg" />
+        </UFormField>
+        <UFormField label="Phone" >
+          <UInput v-model="newUser.phone" icon="i-lucide-phone" type="tel" color="neutral" placeholder="Enter phone number" size="lg" />
+        </UFormField>
+        <UFormField label="Password" >
+          <UInput v-model="newUser.password" icon="i-lucide-lock" type="password" color="neutral" placeholder="Enter password" size="lg" />
+        </UFormField>
+        <UFormField label="Role" >
+          <USelect v-model="newUser.role" color="neutral" :items="[{label:'User',value:'user'},{label:'Admin',value:'admin'}]" placeholder="Select role" size="lg" />
+        </UFormField>
       </div>
     </template>
     <template #footer>
       <div class="flex justify-end gap-3 py-2 px-3">
-        <UButton label="Cancel" color="info" variant="outline" @click="showCreate=false" />
-        <UButton label="Create" color="info" :loading="creating" :disabled="!newUser.name||!newUser.phone||!newUser.password" @click="createUser" />
+        <UButton label="Cancel" color="neutral"  variant="outline" @click="showCreate=false" />
+        <UButton label="Create"class="btn-dark" :loading="creating" :disabled="!newUser.name||!newUser.phone||!newUser.password" @click="createUser" />
       </div>
     </template>
   </UModal>

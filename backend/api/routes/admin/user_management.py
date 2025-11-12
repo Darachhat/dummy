@@ -1,13 +1,16 @@
 # backend/api/routes/admin/user_management.py
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Body,Path
 from sqlalchemy.orm import Session, joinedload, aliased
 from typing import List, Optional
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime
 
 from core.security import hash_password
 from core.permissions import require_admin
 from db.session import SessionLocal
+
+#helper
+from os import getenv
 
 # Models
 from models.user import User
@@ -29,6 +32,20 @@ router = APIRouter(
 )
 
 SUPPORTED_CURRENCIES = ["USD", "KHR"]
+try:
+    USD_TO_KHR_RATE = Decimal(getenv("USD_TO_KHR_RATE"))
+except (InvalidOperation, TypeError):
+    USD_TO_KHR_RATE = Decimal("4000")
+
+
+def get_khr_per_usd() -> Decimal:
+    try:
+        if USD_TO_KHR_RATE is None:
+            return Decimal("4000")
+        return Decimal(USD_TO_KHR_RATE)
+    except (InvalidOperation, TypeError):
+        return Decimal("4000")
+    
 
 
 # --- Database session dependency ---
@@ -67,7 +84,7 @@ def list_users(
         "created_at": User.created_at,
     }
     sort_column = valid_sort_fields.get(sort, User.created_at)
-    query = query.order_by(sort_column.asc() if dir == "asc" else sort_column.desc())
+    query = query.order_by(sort_column.asc())
 
     # --- Pagination ---
     total = query.count()
@@ -90,9 +107,6 @@ def list_users(
         "page": page,
         "page_size": page_size,
     }
-
-
-
 
 # --- Get user detail (with optional relations) ---
 @router.get("/{user_id}")
@@ -122,7 +136,6 @@ def get_user(
         result["accounts"] = [
             {
                 "id": a.id,
-                # some models use `number` or `account_number` — adapt to your model
                 "account_number": getattr(a, "number", getattr(a, "account_number", None)),
                 "balance": float(a.balance) if a.balance is not None else 0.0,
                 "currency": a.currency,
@@ -131,10 +144,8 @@ def get_user(
             for a in accounts
         ]
 
-    # transactions (paginated)
     if "transactions" in includes:
         offset = (page - 1) * limit
-        # use joinedload for eager loading of payment->service for efficiency
         tx_q = (
             db.query(Transaction)
             .options(joinedload(Transaction.payment).joinedload(Payment.service))
@@ -168,7 +179,7 @@ def get_user(
         offset = (page - 1) * limit
         pay_q = (
             db.query(Payment)
-            .options(joinedload(Payment.service))
+            .options(joinedload(Payment.service), joinedload(Payment.transaction))
             .filter(Payment.user_id == user_id)
             .order_by(Payment.created_at.desc())
         )
@@ -187,6 +198,7 @@ def get_user(
                     "currency": p.currency,
                     "status": p.status,
                     "service_name": p.service.name if p.service else None,
+                    "transaction_id": getattr(p.transaction, "transaction_id", None),
                     "created_at": p.created_at.isoformat() if p.created_at else None,
                 }
                 for p in pays
@@ -258,26 +270,58 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 # --- Accounts ---
 @router.get("/{user_id}/accounts", response_model=List[AccountOut])
 def get_user_accounts(user_id: int, db: Session = Depends(get_db)):
-    return db.query(Account).filter(Account.user_id == user_id).all()
+    accounts_db = db.query(Account).filter(Account.user_id == user_id).all()
+    any_khr = any((getattr(a, "currency", "USD") or "USD").upper() == "KHR" for a in accounts_db)
+    khr_per_usd = get_khr_per_usd() if any_khr else None
+
+    out = []
+    for a in accounts_db:
+        stored_usd = Decimal(a.balance or 0)
+        display_currency = (a.currency or "USD").upper()
+
+        if display_currency == "KHR" and khr_per_usd:
+            display_balance = (stored_usd * khr_per_usd).quantize(Decimal("0.01"))
+        else:
+            display_balance = stored_usd.quantize(Decimal("0.01"))
+
+        out.append({
+            "id": a.id,
+            "name": getattr(a, "name", None),
+            "number": getattr(a, "number", getattr(a, "account_number", None)),
+            "balance": float(display_balance),
+            "currency": display_currency,
+            "status": getattr(a, "status", "active"),
+        })
+    return out
 
 
 @router.put("/{user_id}/accounts/{account_id}")
 def update_account_balance(
     user_id: int,
     account_id: int,
-    balance: Decimal = Body(...),
+    payload: dict = Body(...), 
     db: Session = Depends(get_db),
 ):
-    """Admin: Update user's account balance."""
-    account = (
-        db.query(Account)
-        .filter(Account.id == account_id, Account.user_id == user_id)
-        .first()
-    )
+    account = db.query(Account).filter(Account.id == account_id, Account.user_id == user_id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    account.balance = balance
+    try:
+        raw_balance = Decimal(payload.get("balance", 0))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid balance")
+
+    input_currency = (payload.get("currency") or account.currency or "USD").upper()
+
+    if input_currency == "KHR":
+        khr_per_usd = get_khr_per_usd()
+        if khr_per_usd == 0:
+            raise HTTPException(status_code=500, detail="Exchange rate unavailable")
+        balance_usd = (raw_balance / khr_per_usd).quantize(Decimal("0.01"))
+    else:
+        balance_usd = raw_balance.quantize(Decimal("0.01"))
+
+    account.balance = balance_usd
     db.commit()
     db.refresh(account)
     return {
@@ -286,6 +330,71 @@ def update_account_balance(
         "balance": float(account.balance),
         "currency": account.currency,
         "message": "Balance updated successfully",
+    }
+
+
+# --- Create account (conversion-aware) ---
+@router.post("/{user_id}/accounts", response_model=AccountOut)
+def create_user_account(
+    user_id: int,
+    data: AccountCreate,
+    db: Session = Depends(get_db),
+):
+    # ensure user exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # unique number check
+    exists = db.query(Account).filter(Account.number == data.number).first()
+    if exists:
+        raise HTTPException(status_code=400, detail="Account number already exists")
+
+    # validate currency
+    incoming_currency = (data.currency or "USD").upper()
+    if incoming_currency not in SUPPORTED_CURRENCIES:
+        raise HTTPException(status_code=400, detail="Unsupported currency")
+
+    try:
+        input_balance = Decimal(str(data.balance or 0))
+    except Exception:
+        input_balance = Decimal("0")
+
+    if incoming_currency == "KHR":
+        khr_per_usd = get_khr_per_usd() or USD_TO_KHR_RATE
+        if not isinstance(khr_per_usd, Decimal) or khr_per_usd == 0:
+            raise HTTPException(status_code=500, detail="Exchange rate unavailable")
+        # convert KHR -> USD for storage
+        balance_usd = (input_balance / khr_per_usd).quantize(Decimal("0.01"))
+    else:
+        # USD input -> store as USD
+       balance_usd = input_balance.quantize(Decimal("0.01"))
+
+    # create account: store balance in USD, but keep currency as admin-chosen display currency
+    acc = Account(
+        user_id=user.id,
+        name=data.name,
+        number=data.number,
+        balance=balance_usd,
+        currency=incoming_currency,  # used for display conversion later
+    )
+    db.add(acc)
+    db.commit()
+    db.refresh(acc)
+
+    # Prepare response using display currency (convert stored USD -> KHR on response if needed)
+    if incoming_currency == "KHR":
+        display_balance = float((Decimal(acc.balance or 0) * get_khr_per_usd()).quantize(Decimal("0.01")))
+    else:
+        display_balance = float(Decimal(acc.balance or 0).quantize(Decimal("0.01")))
+
+    return {
+        "id": acc.id,
+        "name": acc.name,
+        "number": acc.number,
+        "balance": display_balance,
+        "currency": incoming_currency,
+        "status": getattr(acc, "status", "active"),
     }
 
 
@@ -306,7 +415,6 @@ def user_transactions(
         .options(joinedload(Transaction.payment).joinedload(Payment.service))
         .filter(Transaction.user_id == user_id)
     )
-
     # filtering by dates
     if start_date:
         try:
@@ -318,17 +426,14 @@ def user_transactions(
             q = q.filter(Transaction.created_at <= datetime.fromisoformat(end_date))
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date format, use YYYY-MM-DD")
-
     if direction:
         q = q.filter(Transaction.direction.ilike(direction))
-
-    # if service_name filter requested, safely join payment and service using aliased Payment
     if service_name:
         pay_alias = aliased(Payment)
         q = q.join(pay_alias, pay_alias.id == Transaction.payment_id).join(Service, Service.id == pay_alias.service_id)
         q = q.filter(Service.name.ilike(f"%{service_name}%"))
 
-    txs = q.order_by(Transaction.created_at.desc()).limit(limit).all()
+    txs = q.order_by(Transaction.created_at).limit(limit).all()
 
     results = []
     for t in txs:
@@ -352,9 +457,7 @@ def user_transactions(
             )
         )
     return results
-
-
-# --- Payments (with filters) ---
+# --- Payments
 @router.get("/{user_id}/payments", response_model=List[PaymentConfirmOut])
 def user_payments(
     user_id: int,
@@ -366,7 +469,7 @@ def user_payments(
     status: Optional[str] = Query(None, description="Filter by payment status"),
 ):
     """Get user's recent payments (joined with service info)."""
-    q = db.query(Payment).options(joinedload(Payment.service)).filter(Payment.user_id == user_id)
+    q = db.query(Payment).options(joinedload(Payment.service), joinedload(Payment.transaction)).filter(Payment.user_id == user_id)
 
     if start_date:
         try:
@@ -379,21 +482,19 @@ def user_payments(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date format, use YYYY-MM-DD")
     if service_name:
-        # safe join for filter (aliased optional)
         pay_alias = aliased(Payment)
-        # join service via payment alias
         q = q.join(Service, Service.id == Payment.service_id).filter(Service.name.ilike(f"%{service_name}%"))
     if status:
         q = q.filter(Payment.status.ilike(status))
 
-    payments = q.order_by(Payment.created_at.desc()).limit(limit).all()
+    payments = q.order_by(Payment.created_at).limit(limit).all()
 
     results = []
     for p in payments:
         results.append(
             PaymentConfirmOut(
                 status=p.status,
-                transaction_id=p.transaction_id,
+                transaction_id=getattr(p.transaction, "transaction_id", None),
                 account_id=p.account_id,
                 new_balance=Decimal("0.00"),
                 reference_number=p.reference_number,
@@ -413,7 +514,7 @@ def user_payments(
                 cdc_transaction_datetime_utc=p.cdc_transaction_datetime_utc,
                 reversal_transaction_id=p.reversal_transaction_id,
                 reversal_acknowledgement_id=p.reversal_acknowledgement_id,
-                created_at=p.created_at.isoformat(),
+                created_at=p.created_at,
                 confirmed_at=(p.confirmed_at.isoformat() if p.confirmed_at else None),
             )
         )
@@ -422,36 +523,3 @@ def user_payments(
 @router.get("/meta/currencies", response_model=list[str])
 def list_currencies():
     return SUPPORTED_CURRENCIES
-
-
-@router.post("/{user_id}/accounts", response_model=AccountOut)
-def create_user_account(
-    user_id: int,
-    data: AccountCreate,
-    db: Session = Depends(get_db),
-):
-    # ensure user exists
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # unique number check
-    exists = db.query(Account).filter(Account.number == data.number).first()
-    if exists:
-        raise HTTPException(status_code=400, detail="Account number already exists")
-
-    # validate currency
-    if data.currency not in SUPPORTED_CURRENCIES:
-        raise HTTPException(status_code=400, detail="Unsupported currency")
-
-    acc = Account(
-        user_id=user.id,
-        name=data.name,
-        number=data.number,
-        balance=data.balance,
-        currency=data.currency,
-    )
-    db.add(acc)
-    db.commit()
-    db.refresh(acc)
-    return acc

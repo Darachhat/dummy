@@ -109,8 +109,8 @@
         >
           <div
             v-for="t in transactions"
-            :key="t.transaction_id"
-            @click="goDetail(t.transaction_id)"
+            :key="t.id"
+            @click="goDetail(t.id)"
             class="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 hover:bg-gray-50 transition"
           >
             <div class="flex items-center gap-3 mb-2 sm:mb-0">
@@ -261,6 +261,7 @@ onMounted(async () => {
   try {
     // Fetch user info
     const me = await $api('/me/')
+    console.log('ME ->', me)
     if (!me) throw new Error('Unauthorized')
 
     balance.value = me.total_balance || 0
@@ -271,12 +272,45 @@ onMounted(async () => {
       accountType.value = accounts[0].type
     }
 
-    // Fetch recent transactions
-    const txs = await $api('/transactions/')
-    transactions.value = Array.isArray(txs) ? txs.slice(0, 5) : []
+    let txs = []
+    if (accounts.length > 0 && Array.isArray(accounts[0].transactions) && accounts[0].transactions.length) {
+      txs = accounts[0].transactions
+      console.log('Using transactions from /me.accounts[0].transactions', txs)
+    } else if (accounts.length > 0) {
+      try {
+        txs = await $api(`/accounts/${accounts[0].id}/transactions`)
+        console.log('Fetched /accounts/:id/transactions ->', txs)
+      } catch (err) {
+        console.warn('Failed to fetch account transactions', err)
+        txs = []
+      }
+    } else {
+      try {
+        const maybeTxs = await $api('/transactions/')
+        console.log('/transactions/ ->', maybeTxs)
+        txs = Array.isArray(maybeTxs) ? maybeTxs : (maybeTxs.items || [])
+      } catch (err) {
+        console.warn('Failed to fetch /transactions/', err)
+        txs = []
+      }
+    }
+
+    transactions.value = (txs || []).slice(0, 5).map(t => ({
+      id: t.id,
+      transaction_id: t.transaction_id,
+      reference_number: t.reference_number,
+      description: t.description,
+      amount: t.amount ?? t.total_amount ?? 0,
+      total_amount: t.total_amount ?? t.amount ?? 0,
+      currency: t.currency || 'USD',
+      direction: t.direction || 'debit',
+      service_name: t.service_name || (t.payment?.service?.name) || null,
+      service_logo_url: t.service_logo_url || (t.payment?.service?.logo_url) || null,
+      created_at: t.created_at || t.createdAt || null,
+    }))
+
   } catch (err: any) {
     console.error('Failed to load dashboard', err)
-    // Handle expired/invalid token safely
     if (err?.response?.status === 401) {
       localStorage.removeItem('token')
       navigateTo('/login')

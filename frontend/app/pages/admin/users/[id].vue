@@ -24,16 +24,16 @@
 
       <div class="grid md:grid-cols-2 gap-4">
         <UFormField  label="Name" >
-          <UInput v-model.trim="form.name" placeholder="Full name" @blur="touched = true" />
+          <UInput v-model.trim="form.name" color="neutral" placeholder="Full name" @blur="touched = true" />
         </UFormField>
 
         <UFormField  label="Phone" >
-          <UInput v-model.trim="form.phone" inputmode="tel" placeholder="Phone number" @input="digitsPhone" @blur="touched = true" />
+          <UInput v-model.trim="form.phone" inputmode="tel" color="neutral" placeholder="Phone number" @input="digitsPhone" @blur="touched = true" />
         </UFormField>
 
         <UFormField  label="Role">
           <USelect
-            v-model="form.role"
+            v-model="form.role" color="neutral"
             :items="[{ label: 'User', value: 'user' }, { label: 'Admin', value: 'admin' }]"
             placeholder="Select role"
           />
@@ -45,6 +45,7 @@
               :type="showPwd ? 'text' : 'password'"
               v-model.trim="form.password"
               placeholder="Leave blank to keep current"
+              color="neutral"
             />
             <UButton
               type="button"
@@ -85,7 +86,7 @@
             <UButton
               size="sm"
               variant="outline"
-              class="btn-outline-dark"
+              color="neutral"
               icon="i-lucide-edit"
               label="Edit Balance"
               @click="openEditBalance(row.original)"
@@ -146,7 +147,7 @@
         <div class="flex justify-between items-center text-sm text-gray-600">
           <span>Showing {{ txs.length }} of {{ txTotal }} — Page {{ txPage }} / {{ txTotalPages }}</span>
           <div class="flex gap-2">
-            <UButton size="sm" variant="outline" class="btn-outline-dark" :disabled="txPage<=1 || txPending" @click="goTx(txPage-1)">Prev</UButton>
+            <UButton size="sm" variant="outline" color="neutral" :disabled="txPage<=1 || txPending" @click="goTx(txPage-1)">Prev</UButton>
             <UButton size="sm" class="btn-dark" :disabled="txPage>=txTotalPages || txPending" @click="goTx(txPage+1)">Next</UButton>
           </div>
         </div>
@@ -183,7 +184,7 @@
   </template>
 
   <template #actions-cell="{ row }">
-  <UButton size="sm" variant="outline" @click="openPaymentDetail(row.original)">Details</UButton>
+  <UButton size="sm" variant="outline" color="neutral" @click="openPaymentDetail(row.original)">Details</UButton>
 </template>
 
 
@@ -198,7 +199,7 @@
         <div class="flex justify-between items-center text-sm text-gray-600">
           <span>Showing {{ pays.length }} of {{ payTotal }} — Page {{ payPage }} / {{ payTotalPages }}</span>
           <div class="flex gap-2">
-            <UButton size="sm" variant="outline" class="btn-outline-dark" :disabled="payPage<=1 || payPending" @click="goPay(payPage-1)">Prev</UButton>
+            <UButton size="sm" variant="outline" color="neutral" :disabled="payPage<=1 || payPending" @click="goPay(payPage-1)">Prev</UButton>
             <UButton size="sm" class="btn-dark" :disabled="payPage>=payTotalPages || payPending" @click="goPay(payPage+1)">Next</UButton>
           </div>
         </div>
@@ -210,24 +211,24 @@
       <template #body>
         <div class="space-y-4">
           <UFormField label="Name" required>
-            <UInput v-model.trim="newAccount.name" placeholder="e.g. Main Wallet" />
+            <UInput color="neutral" v-model.trim="newAccount.name" placeholder="e.g. Main Wallet" />
           </UFormField>
           <UFormField label="Account Number" required>
-            <UInput v-model.trim="newAccount.number" placeholder="e.g. 000-000-000 " />
+            <UInput color="neutral"  v-model.trim="newAccount.number" placeholder="e.g. 000-000-000 " />
           </UFormField>
           <div class="grid sm:grid-cols-2 gap-4">
             <UFormField label="Initial Balance" required>
-              <UInput v-model.number="newAccount.balance" inputmode="decimal" placeholder="0.00" />
+              <UInput color="neutral"  v-model.number="newAccount.balance" inputmode="decimal" placeholder="0.00" />
             </UFormField>
             <UFormField label="Currency" required>
-              <USelect v-model="newAccount.currency" :items="currencyOptions" placeholder="Select currency" />
+              <USelect color="neutral"  v-model="newAccount.currency" :items="currencyOptions" placeholder="Select currency" />
             </UFormField>
           </div>
         </div>
       </template>
       <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton variant="outline" class="btn-outline-dark" @click="showAddAccount=false">Cancel</UButton>
+          <div class="flex justify-end gap-2">
+            <UButton variant="outline" color="neutral" @click="showAddAccount=false">Cancel</UButton>
           <UButton class="btn-dark" :disabled="!newAccount.name || !newAccount.number" :loading="addingAcc" @click="addAccount">
             Add
           </UButton>
@@ -239,12 +240,12 @@
     <UModal v-model:open="showEditBalance" :title="`Edit Balance — ${editingAcc?.number || editingAcc?.name || ''}`">
       <template #body>
         <UFormField label="New Balance">
-          <UInput v-model.number="editBalanceValue" inputmode="decimal" placeholder="0.00" />
+          <UInput color="neutral" v-model.number="editBalanceValue" inputmode="decimal" placeholder="0.00" />
         </UFormField>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton variant="outline" class="btn-outline-dark" @click="showEditBalance=false">Cancel</UButton>
+          <UButton variant="outline" color="neutral" @click="showEditBalance=false">Cancel</UButton>
           <UButton class="btn-dark" :loading="savingAcc" @click="saveBalance">Save</UButton>
         </div>
       </template>
@@ -280,7 +281,7 @@
         <label class="text-xs text-gray-500">Session ID</label>
         <div class="flex items-center gap-2">
           <div class="truncate text-slate-700">{{ selectedPayment?.session_id ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.session_id" @click="copyField(selectedPayment?.session_id, 'Session ID')" />
+          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.session_id" @click="copyField(selectedPayment?.session_id, 'Session ID')" />
         </div>
       </div>
 
@@ -288,7 +289,7 @@
         <label class="text-xs text-gray-500">Acknowledgement ID</label>
         <div class="flex items-center gap-2">
           <div class="truncate text-slate-700">{{ selectedPayment?.acknowledgement_id ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.acknowledgement_id" @click="copyField(selectedPayment?.acknowledgement_id, 'Acknowledgement ID')" />
+          <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.acknowledgement_id" @click="copyField(selectedPayment?.acknowledgement_id, 'Acknowledgement ID')" />
         </div>
       </div>
 
@@ -296,7 +297,7 @@
         <label class="text-xs text-gray-500">CDC Transaction Datetime</label>
         <div class="flex items-center gap-2">
           <div class="truncate text-slate-700">{{ selectedPayment?.cdc_transaction_datetime ?? selectedPayment?.created_at ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!(selectedPayment?.cdc_transaction_datetime || selectedPayment?.created_at)" @click="copyField(selectedPayment?.cdc_transaction_datetime ?? selectedPayment?.created_at, 'CDC local')" />
+          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!(selectedPayment?.cdc_transaction_datetime || selectedPayment?.created_at)" @click="copyField(selectedPayment?.cdc_transaction_datetime ?? selectedPayment?.created_at, 'CDC local')" />
         </div>
       </div>
 
@@ -304,7 +305,7 @@
         <label class="text-xs text-gray-500">CDC Transaction Datetime UTC</label>
         <div class="flex items-center gap-2">
           <div class="truncate text-slate-700">{{ selectedPayment?.cdc_transaction_datetime_utc ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.cdc_transaction_datetime_utc" @click="copyField(selectedPayment?.cdc_transaction_datetime_utc, 'CDC UTC')" />
+          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.cdc_transaction_datetime_utc" @click="copyField(selectedPayment?.cdc_transaction_datetime_utc, 'CDC UTC')" />
         </div>
       </div>
 
@@ -312,7 +313,7 @@
         <label class="text-xs text-gray-500">Reversal Transaction ID</label>
         <div class="flex items-center gap-2">
           <div class="truncate text-slate-700">{{ selectedPayment?.reversal_transaction_id ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_transaction_id" @click="copyField(selectedPayment?.reversal_transaction_id, 'Reversal Tx')" />
+          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_transaction_id" @click="copyField(selectedPayment?.reversal_transaction_id, 'Reversal Tx')" />
         </div>
       </div>
 
@@ -320,7 +321,7 @@
         <label class="text-xs text-gray-500">Reversal Acknowledgement ID</label>
         <div class="flex items-center gap-2">
           <div class="truncate text-slate-700">{{ selectedPayment?.reversal_acknowledgement_id ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_acknowledgement_id" @click="copyField(selectedPayment?.reversal_acknowledgement_id, 'Reversal Ack')" />
+          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_acknowledgement_id" @click="copyField(selectedPayment?.reversal_acknowledgement_id, 'Reversal Ack')" />
         </div>
       </div>
 
@@ -335,7 +336,7 @@
       </div>
 
       <div class="col-span-1 sm:col-span-2 pt-2">
-        <label class="text-xs text-gray-500">Raw / Notes</label>
+        <label class="text-xs text-gray-500">Raw </label>
         <div class="mt-1 p-3 bg-gray-50 rounded-md text-xs text-gray-700 break-words max-h-36 overflow-auto">
           <pre class="whitespace-pre-wrap text-xs m-0">{{ JSON.stringify(selectedPayment?.original ?? selectedPayment ?? {}, null, 2) }}</pre>
         </div>
@@ -346,16 +347,16 @@
   <template #footer>
     <div class="flex items-center justify-between w-full">
       <div class="flex gap-2">
-        <UButton variant="outline" @click="copyField(selectedPayment?.reference_number, 'Reference')" :disabled="!selectedPayment?.reference_number">
+        <UButton variant="outline" color="neutral" @click="copyField(selectedPayment?.reference_number, 'Reference')" :disabled="!selectedPayment?.reference_number">
           <i class="i-lucide-copy mr-2"></i> Copy Reference
         </UButton>
-        <UButton variant="outline" @click="openTransaction(selectedPayment?.transaction_id)" :disabled="!selectedPayment?.transaction_id">
+        <UButton variant="outline" color="neutral" @click="openTransaction(selectedPayment?.id ?? selectedPayment?.transaction_id)" :disabled="!selectedPayment?.transaction_id">
           <i class="i-lucide-external-link mr-2"></i> Open Transaction
         </UButton>
       </div>
 
       <div class="flex gap-2">
-        <UButton variant="ghost" @click="showPaymentDetail = false">Close</UButton>
+        <UButton variant="ghost" color="neutral" @click="showPaymentDetail = false">Close</UButton>
         <UButton class="btn-dark" @click="showPaymentDetail = false">Done</UButton>
       </div>
     </div>
@@ -412,7 +413,7 @@ const txPageSize = 10
 const txTotal = ref(0)
 const txQ = ref('')
 const transactionColumns = [
-  { accessorKey: 'id', header: 'ID' },
+  { accessorKey: 'transaction_id', header: 'Transaction ID' },
   { accessorKey: 'reference_number', header: 'Reference' },
   { accessorKey: 'service_name', header: 'Service' },
   { accessorKey: 'fee', header: 'Fee' },
@@ -433,7 +434,7 @@ const payQ = ref('')
 const showPaymentDetail = ref(false)
 const selectedPayment = ref<any | null>(null)
 const paymentColumns = [
-  { accessorKey: 'id', header: 'ID' },
+  { accessorKey: 'transaction_id', header: 'Transaction ID' },
   { accessorKey: 'reference_number', header: 'Reference' },
   { accessorKey: 'amount', header: 'Amount' },
   { accessorKey: 'status', header: 'Status' },

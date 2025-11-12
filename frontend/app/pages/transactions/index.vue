@@ -18,8 +18,8 @@
     >
       <div
         v-for="t in transactions"
-        :key="t.transaction_id"
-        @click="goDetail(t.transaction_id)"
+        :key="t.id"
+        @click="goDetail(t.id ?? t.transaction_id)"
         class="flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition cursor-pointer"
       >
         <!-- Left -->
@@ -91,7 +91,15 @@ onMounted(async () => {
   }
 })
 
-const goDetail = (id: number) => navigateTo(`/transactions/${id}`)
+const goDetail = (id: number | string) => {
+  const finalId = (typeof id === 'number' && !Number.isNaN(id)) ? id : Number(id)
+  if (!Number.isNaN(finalId) && finalId !== 0) {
+    navigateTo(`/transactions/${finalId}`)
+  } else {
+    navigateTo(`/transactions/${encodeURIComponent(String(id))}`)
+  }
+}
+
 
 const getLogoUrl = (path: string) => {
   if (!path) return `${BACKEND_URL}/static/logos/default.svg`

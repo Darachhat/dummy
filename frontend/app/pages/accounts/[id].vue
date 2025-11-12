@@ -98,15 +98,59 @@ const BACKEND_URL = config.public.apiBase
 
 onMounted(async () => {
   try {
-    const accId = Number(route.params.id)
-    account.value = await $api(`/accounts/${accId}`)
-    transactions.value = await $api(`/accounts/${accId}/transactions`)
+    const rawId = route.params.id
+    const accId = Number(rawId)
+    if (Number.isNaN(accId)) {
+      console.warn('Invalid account id in route:', rawId)
+      return navigateTo('/accounts')
+    }
+
+    console.debug('Loading account', accId)
+    const acc = await $api(`/accounts/${accId}`)
+    account.value = acc ?? null
+
+    // fetch transactions
+    let txs: any = []
+    try {
+      const res = await $api(`/accounts/${accId}/transactions`)
+      txs = Array.isArray(res) ? res : (res?.items ?? [])
+      console.debug(`/accounts/${accId}/transactions ->`, txs)
+    } catch (err) {
+      console.warn(`Failed to fetch /accounts/${accId}/transactions`, err)
+      txs = []
+    }
+    transactions.value = (txs || []).map((t: any) => {
+      const id = t.id ?? t.transaction_id ?? null
+      const rawAmount = t.amount ?? t.total_amount ?? t.totalAmount ?? 0
+      const amountNum = typeof rawAmount === 'string' ? parseFloat(rawAmount) : rawAmount
+      const created = t.created_at ?? t.createdAt ?? t.createdAtIso ?? null
+
+      return {
+        ...t,
+        id,
+        amount: Number.isFinite(Number(amountNum)) ? Number(amountNum) : 0,
+        created_at: created,
+      }
+    })
   } catch (err) {
     console.error('Failed to load account details:', err)
+    navigateTo('/accounts')
   }
 })
 
-const goTransactionDetail = (id: number) => navigateTo(`/transactions/${id}`)
+const goTransactionDetail = (id: number | string) => {
+  if (typeof id === 'number' && !Number.isNaN(id)) {
+    navigateTo(`/transactions/${id}`)
+    return
+  }
+  const maybeNum = Number(id)
+  if (!Number.isNaN(maybeNum)) {
+    navigateTo(`/transactions/${maybeNum}`)
+    return
+  }
+  navigateTo(`/transactions/${encodeURIComponent(String(id))}`)
+}
+
 
 const getLogoUrl = (path: string) => {
   if (!path) return `${BACKEND_URL}/static/logos/default.png`

@@ -119,30 +119,75 @@ const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
 
 onMounted(async () => {
+  loading.value = true
   try {
-    const transactionId = Number(route.params.id)
+    const rawParam = route.params.id       
+    const numericId = Number(rawParam)    
     const me = await $api('/me')
     const accounts = me.accounts || []
-
     let found = null
-    for (const acc of accounts) {
-      try {
-        const tx = await $api(`/accounts/${acc.id}/transactions/${transactionId}`)
-        if (tx) {
-          found = tx
-          break
+
+    const normalizeTx = (raw: any) => {
+      if (!raw) return null
+      const serviceName = raw.service?.name ?? raw.service_name ?? raw.payment?.service?.name ?? null
+      const serviceLogo = raw.service?.logo_url ?? raw.service_logo_url ?? raw.payment?.service?.logo_url ?? null
+      const accountObj = raw.account ?? (raw.account_id ? { id: raw.account_id, number: raw.account_number ?? raw.number, name: raw.account_name ?? null } : null)
+      return { ...raw, service: { name: serviceName, logo_url: serviceLogo }, account: accountObj }
+    }
+    if (!Number.isNaN(numericId) && accounts.length > 0) {
+      for (const acc of accounts) {
+        try {
+          const tx = await $api(`/accounts/${acc.id}/transactions/${numericId}`)
+          if (tx) {
+            found = normalizeTx(tx)
+            console.log('Found transaction by numeric id on account', acc.id, found)
+            break
+          }
+        } catch (err: any) {
+          if (err?.response?.status !== 404) console.error(`Error on account ${acc.id} numeric lookup`, err)
         }
-      } catch (err: any) {
-        if (err?.response?.status !== 404) console.error(`Error on account ${acc.id}:`, err)
       }
     }
+    if (!found) {
+      const tid = String(rawParam)
+      for (const acc of accounts) {
+        try {
+          const accountTxs = await $api(`/accounts/${acc.id}/transactions`)
+          if (Array.isArray(accountTxs) && accountTxs.length) {
+            const match = accountTxs.find((x: any) => x.transaction_id === tid || x.reference_number === tid)
+            if (match) {
+              found = normalizeTx(match)
+              found.account = found.account ?? { id: acc.id, number: acc.number ?? acc.account_number, name: acc.name ?? acc.account_name }
+              console.log('Found transaction by tid in account', acc.id, found)
+              break
+            }
+          }
+        } catch (err: any) {
+          if (err?.response?.status !== 404) console.error(`Error fetching transactions for account ${acc.id}`, err)
+        }
+      }
+    }
+    if (!found && !Number.isNaN(numericId)) {
+      try {
+        const globalTx = await $api(`/transactions/${numericId}`)
+        if (globalTx) {
+          found = normalizeTx(globalTx)
+          console.log('Found via global transactions route', found)
+        }
+      } catch (err: any) {
+        if (err?.response?.status !== 404) console.error('Error fetching global transaction', err)
+      }
+    }
+
     transaction.value = found
+    if (!found) console.warn('Transaction not found for param', rawParam)
   } catch (err) {
     console.error('Failed to load transaction details:', err)
   } finally {
     loading.value = false
   }
 })
+
 
 const getLogoUrl = (path: string) => {
   if (!path) return `${BACKEND_URL}/static/logos/default.svg`
