@@ -8,6 +8,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(String(32), unique=True, index=True, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
     payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True)

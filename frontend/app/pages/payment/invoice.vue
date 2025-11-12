@@ -99,9 +99,10 @@
 import { ArrowLeft } from 'lucide-vue-next'
 import { formatCurrency } from '~/utils/helpers'
 import { convertToUSD } from '~/utils/helpers'
+import { useToast } from '~/composables/useToast'
 
 const { $api } = useNuxtApp()
-const { show } = useToast()
+const toast = useToast()
 const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
 const paymentSelection = useState<any>('paymentSelection')
@@ -130,7 +131,7 @@ onMounted(async () => {
       updateAccountBalance()
     }
   } catch {
-    show('Failed to load accounts', 'error')
+    toast.show('Failed to load accounts', 'error')
   }
 })
 
@@ -146,21 +147,21 @@ const lookupInvoice = async () => {
     invoice.value = res
     amount.value = Number(res.amount)
     invoiceAlreadyPaid.value = false
-    show('Invoice loaded successfully', 'success')
+    toast.show('Invoice loaded successfully', 'success')
   } catch (err: any) {
     invoice.value = null
     amount.value = null
 
     if (err.response?.status === 423) {
       invoiceAlreadyPaid.value = true
-      show('This invoice has already been paid.', 'warning')
+      toast.show('This invoice has already been paid.', 'warning')
       setTimeout(() => {
         reference.value = ''
         invoiceAlreadyPaid.value = false
       }, 2500)
     } else {
       invoiceAlreadyPaid.value = false
-      show('Invalid reference number or failed to fetch invoice.', 'error')
+      toast.show('Invalid reference number or failed to fetch invoice.', 'error')
     }
   }
 }
@@ -196,7 +197,7 @@ const submitPayment = async () => {
 
     navigateTo('/payment/confirm')
   } catch {
-    show('Failed to start payment', 'error')
+    toast.show('Failed to start payment', 'error')
   }
 }
 </script>

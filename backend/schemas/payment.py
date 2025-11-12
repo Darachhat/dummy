@@ -38,14 +38,30 @@ class PaymentConfirmOut(BaseModel):
     total_amount: Decimal
     currency: str
     service: Optional[dict]
-    cdc_transaction_datetime: Optional[datetime] = None 
+    session_id: Optional[str] = None
+    acknowledgement_id: Optional[str] = None
+    cdc_transaction_datetime: Optional[datetime] = None
+    cdc_transaction_datetime_utc: Optional[datetime] = None
+    reversal_transaction_id: Optional[str] = None
+    reversal_acknowledgement_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    confirmed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
-    # Custom dict override for timezone formatting
     def dict(self, *args, **kwargs):
         data = super().dict(*args, **kwargs)
+        # convert datetimes to local strings
         if self.cdc_transaction_datetime:
             data["cdc_transaction_datetime"] = to_local_time(self.cdc_transaction_datetime)
+        if self.cdc_transaction_datetime_utc:
+            # keep UTC string too (isoformat)
+            data["cdc_transaction_datetime_utc"] = (self.cdc_transaction_datetime_utc.isoformat()
+                                                    if isinstance(self.cdc_transaction_datetime_utc, datetime) else self.cdc_transaction_datetime_utc)
+        if self.created_at:
+            data["created_at"] = to_local_time(self.created_at)
+        if self.confirmed_at:
+            data["confirmed_at"] = to_local_time(self.confirmed_at)
         return data
+

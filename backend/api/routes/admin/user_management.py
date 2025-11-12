@@ -407,7 +407,14 @@ def user_payments(
                     "name": p.service.name if p.service else None,
                     "logo_url": p.service.logo_url if p.service else None,
                 },
+                session_id=p.session_id,
+                acknowledgement_id=p.acknowledgement_id,
                 cdc_transaction_datetime=p.cdc_transaction_datetime,
+                cdc_transaction_datetime_utc=p.cdc_transaction_datetime_utc,
+                reversal_transaction_id=p.reversal_transaction_id,
+                reversal_acknowledgement_id=p.reversal_acknowledgement_id,
+                created_at=p.created_at.isoformat(),
+                confirmed_at=(p.confirmed_at.isoformat() if p.confirmed_at else None),
             )
         )
     return results

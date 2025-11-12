@@ -1,4 +1,4 @@
-]<template>
+<template>
   <div class="space-y-8">
     <!-- Header -->
     <div class="hidden md:flex justify-between items-center">
@@ -107,17 +107,40 @@
         </div>
       </template>
 
-      <UTable :data="txs" :columns="transactionColumns" :loading="txPending" class="min-w-full">
-        <template #amount-cell="{ row }">
-          {{ formatMoney(row.original.amount, row.original.currency || 'USD') }}
-        </template>
-        <template #created_at-cell="{ row }">
-          {{ formatDate(row.original.created_at) }}
-        </template>
-        <template #empty>
-          <div class="text-center py-6 text-gray-500">No transactions found</div>
-        </template>
-      </UTable>
+   <UTable :data="txs" :columns="transactionColumns" :loading="txPending" class="min-w-full">
+  <template #reference_number-cell="{ row }">
+    <div class="truncate max-w-xs">{{ row.original?.reference_number ?? '-' }}</div>
+  </template>
+
+  <template #service_name-cell="{ row }">
+    <div class="flex items-center gap-2">
+      <img
+        v-if="row.original?.service_logo_url"
+        :src="getLogoUrl(row.original.service_logo_url)"
+        class="w-6 h-6 rounded-full object-contain"
+      />
+      <span>{{ row.original?.service_name ?? '-' }}</span>
+    </div>
+  </template>
+
+  <template #amount-cell="{ row }">
+    {{ formatMoney(row.original?.amount, row.original?.currency || 'USD') }}
+  </template>
+
+  <template #total_amount-cell="{ row }">
+    {{ formatMoney(row.original?.total_amount ?? row.original?.totalAmount, row.original?.currency || 'USD') }}
+  </template>
+
+  <template #created_at-cell="{ row }">
+    {{ formatDate(row.original?.created_at ?? row.original?.cdc_transaction_datetime) }}
+  </template>
+
+  <template #empty>
+    <div class="text-center py-6 text-gray-500">No transactions found</div>
+  </template>
+</UTable>
+
+
 
       <template #footer>
         <div class="flex justify-between items-center text-sm text-gray-600">
@@ -138,20 +161,38 @@
         </div>
       </template>
 
-      <UTable :data="pays" :columns="paymentColumns" :loading="payPending" class="min-w-full">
-        <template #amount-cell="{ row }">
-          {{ formatMoney(row.original.amount, row.original.currency || 'USD') }}
-        </template>
-        <template #created_at-cell="{ row }">
-          {{ formatDate(row.original.created_at) }}
-        </template>
-        <template #status-cell="{ row }">
-          <UBadge :label="row.original.status" :color="row.original.status === 'paid' ? 'green' : 'orange'" />
-        </template>
-        <template #empty>
-          <div class="text-center py-6 text-gray-500">No payments found</div>
-        </template>
-      </UTable>
+<UTable :data="pays" :columns="paymentColumns" :loading="payPending" class="min-w-full">
+  <template #reference_number-cell="{ row }">
+    <div class="truncate max-w-xs">{{ row.original?.reference_number ?? '-' }}</div>
+  </template>
+
+  <template #method-cell="{ row }">
+    {{ row.original?.method ?? row.original?.payment_method ?? '-' }}
+  </template>
+
+  <template #amount-cell="{ row }">
+    {{ formatMoney(row.original?.amount, row.original?.currency || 'USD') }}
+  </template>
+
+  <template #created_at-cell="{ row }">
+    {{ formatDate(row.original?.created_at ?? row.original?.cdc_payment_datetime) }}
+  </template>
+
+  <template #status-cell="{ row }">
+    <UBadge :label="row.original?.status ?? 'unknown'" :color="(row.original?.status === 'paid') ? 'green' : 'orange'" />
+  </template>
+
+  <template #actions-cell="{ row }">
+  <UButton size="sm" variant="outline" @click="openPaymentDetail(row.original)">Details</UButton>
+</template>
+
+
+  <template #empty>
+    <div class="text-center py-6 text-gray-500">No payments found</div>
+  </template>
+</UTable>
+
+
 
       <template #footer>
         <div class="flex justify-between items-center text-sm text-gray-600">
@@ -208,6 +249,121 @@
         </div>
       </template>
     </UModal>
+
+    <!-- PAYMENT DETAIL MODAL -->
+<UModal v-model:open="showPaymentDetail" title="Payment Details" class="max-w-2xl">
+  <template #header>
+    <div class="flex items-center justify-between w-full">
+      <div class="flex items-center gap-3">
+        <div class="text-sm text-gray-600">Reference</div>
+        <div class="font-medium text-lg break-all">{{ selectedPayment?.reference_number ?? '-' }}</div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <UBadge :label="selectedPayment?.status ?? 'unknown'" :color="statusVariant" />
+        <div v-if="selectedPayment?.service_name" class="flex items-center gap-2">
+          <img
+            v-if="selectedPayment?.service_logo_url"
+            :src="getLogoUrl(selectedPayment.service_logo_url)"
+            alt="service"
+            class="w-8 h-8 rounded-md object-contain border"
+          />
+          <div class="text-sm text-gray-700">{{ selectedPayment?.service_name }}</div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template #body>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+      <div class="space-y-2">
+        <label class="text-xs text-gray-500">Session ID</label>
+        <div class="flex items-center gap-2">
+          <div class="truncate text-slate-700">{{ selectedPayment?.session_id ?? '-' }}</div>
+          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.session_id" @click="copyField(selectedPayment?.session_id, 'Session ID')" />
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-gray-500">Acknowledgement ID</label>
+        <div class="flex items-center gap-2">
+          <div class="truncate text-slate-700">{{ selectedPayment?.acknowledgement_id ?? '-' }}</div>
+          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.acknowledgement_id" @click="copyField(selectedPayment?.acknowledgement_id, 'Acknowledgement ID')" />
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-gray-500">CDC Transaction Datetime</label>
+        <div class="flex items-center gap-2">
+          <div class="truncate text-slate-700">{{ selectedPayment?.cdc_transaction_datetime ?? selectedPayment?.created_at ?? '-' }}</div>
+          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!(selectedPayment?.cdc_transaction_datetime || selectedPayment?.created_at)" @click="copyField(selectedPayment?.cdc_transaction_datetime ?? selectedPayment?.created_at, 'CDC local')" />
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-gray-500">CDC Transaction Datetime UTC</label>
+        <div class="flex items-center gap-2">
+          <div class="truncate text-slate-700">{{ selectedPayment?.cdc_transaction_datetime_utc ?? '-' }}</div>
+          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.cdc_transaction_datetime_utc" @click="copyField(selectedPayment?.cdc_transaction_datetime_utc, 'CDC UTC')" />
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-gray-500">Reversal Transaction ID</label>
+        <div class="flex items-center gap-2">
+          <div class="truncate text-slate-700">{{ selectedPayment?.reversal_transaction_id ?? '-' }}</div>
+          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_transaction_id" @click="copyField(selectedPayment?.reversal_transaction_id, 'Reversal Tx')" />
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-gray-500">Reversal Acknowledgement ID</label>
+        <div class="flex items-center gap-2">
+          <div class="truncate text-slate-700">{{ selectedPayment?.reversal_acknowledgement_id ?? '-' }}</div>
+          <UButton size="sm" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_acknowledgement_id" @click="copyField(selectedPayment?.reversal_acknowledgement_id, 'Reversal Ack')" />
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-gray-500">Confirmed At</label>
+        <div class="text-slate-700">{{ selectedPayment?.confirmed_at ?? '-' }}</div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-gray-500">Created At</label>
+        <div class="text-slate-700">{{ selectedPayment?.created_at ?? '-' }}</div>
+      </div>
+
+      <div class="col-span-1 sm:col-span-2 pt-2">
+        <label class="text-xs text-gray-500">Raw / Notes</label>
+        <div class="mt-1 p-3 bg-gray-50 rounded-md text-xs text-gray-700 break-words max-h-36 overflow-auto">
+          <pre class="whitespace-pre-wrap text-xs m-0">{{ JSON.stringify(selectedPayment?.original ?? selectedPayment ?? {}, null, 2) }}</pre>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template #footer>
+    <div class="flex items-center justify-between w-full">
+      <div class="flex gap-2">
+        <UButton variant="outline" @click="copyField(selectedPayment?.reference_number, 'Reference')" :disabled="!selectedPayment?.reference_number">
+          <i class="i-lucide-copy mr-2"></i> Copy Reference
+        </UButton>
+        <UButton variant="outline" @click="openTransaction(selectedPayment?.transaction_id)" :disabled="!selectedPayment?.transaction_id">
+          <i class="i-lucide-external-link mr-2"></i> Open Transaction
+        </UButton>
+      </div>
+
+      <div class="flex gap-2">
+        <UButton variant="ghost" @click="showPaymentDetail = false">Close</UButton>
+        <UButton class="btn-dark" @click="showPaymentDetail = false">Done</UButton>
+      </div>
+    </div>
+  </template>
+</UModal>
+
+   
+
   </div>
 </template>
 
@@ -257,10 +413,14 @@ const txTotal = ref(0)
 const txQ = ref('')
 const transactionColumns = [
   { accessorKey: 'id', header: 'ID' },
-  { accessorKey: 'type', header: 'Type' },
+  { accessorKey: 'reference_number', header: 'Reference' },
+  { accessorKey: 'service_name', header: 'Service' },
+  { accessorKey: 'fee', header: 'Fee' },
   { accessorKey: 'amount', header: 'Amount' },
+  { accessorKey: 'total_amount', header: 'Total' },
   { accessorKey: 'created_at', header: 'Date' },
 ]
+
 const txTotalPages = computed(() => Math.max(1, Math.ceil(txTotal.value / txPageSize)))
 
 /* Payments */
@@ -270,22 +430,37 @@ const payPage = ref(1)
 const payPageSize = 10
 const payTotal = ref(0)
 const payQ = ref('')
+const showPaymentDetail = ref(false)
+const selectedPayment = ref<any | null>(null)
 const paymentColumns = [
   { accessorKey: 'id', header: 'ID' },
-  { accessorKey: 'method', header: 'Method' },
+  { accessorKey: 'reference_number', header: 'Reference' },
   { accessorKey: 'amount', header: 'Amount' },
   { accessorKey: 'status', header: 'Status' },
   { accessorKey: 'created_at', header: 'Date' },
+  { id: 'actions', header: 'Details' }
+
 ]
+
 const payTotalPages = computed(() => Math.max(1, Math.ceil(payTotal.value / payPageSize)))
+
+function openPaymentDetail(p: any) {
+  selectedPayment.value = p
+  showPaymentDetail.value = true
+}
 
 /* ---------- Utils ---------- */
 function formatDate(s?: string) { return s ? new Date(s).toLocaleString() : '-' }
-function formatMoney(n?: number, c: string = 'USD') {
-  return typeof n === 'number'
-    ? n.toLocaleString(undefined, { style: 'currency', currency: c, minimumFractionDigits: 2 })
-    : '-'
+function formatMoney(n?: number | string | null, c: string = 'USD') {
+  if (n === null || n === undefined || n === '') return '-'
+  const num =
+    typeof n === 'number'
+      ? n
+      : (typeof n === 'string' && n.trim() !== '') ? Number(n.replace(/,/g, '')) : NaN
+  if (!isFinite(num)) return '-'
+  return num.toLocaleString(undefined, { style: 'currency', currency: c, minimumFractionDigits: 2 })
 }
+
 function digitsPhone(e: any) {
   const v = e?.target?.value ?? ''
   form.phone = v.startsWith('+') ? ('+' + v.slice(1).replace(/\D/g, '')) : v.replace(/\D/g, '')
@@ -328,10 +503,40 @@ async function loadTxs(reset = false) {
     const res = await $api(`/admin/users/${id.value}/transactions`, {
       query: { q: txQ.value || undefined, page: txPage.value, page_size: txPageSize },
     })
-    txs.value = res.items ?? []
-    txTotal.value = res.total ?? txs.value.length
-  } finally { txPending.value = false }
+
+    const normalizeTx = (t: any) => {
+      return {
+        id: t.id ?? t.transaction_id ?? null,
+        transaction_id: t.transaction_id ?? t.id ?? null,
+        reference_number: t.reference_number ?? t.ref ?? null,
+        amount: t.amount ?? t.total_amount ?? t.totalAmount ?? null,
+        total_amount: t.total_amount ?? t.totalAmount ?? null,
+        currency: t.currency ?? 'USD',
+        created_at: t.created_at ?? t.cdc_transaction_datetime ?? t.createdAt ?? t.timestamp ?? null,
+        service_name: t.service_name ?? (t.service?.name ?? null),
+        service_logo_url: t.service_logo_url ?? (t.service?.logo_url ?? null),
+        type: t.type ?? t.direction ?? (t.status ? String(t.status) : '-'),
+        fee: t.fee ?? null,
+        customer_name: t.customer_name ?? null,
+        original: t,
+      }
+    }
+
+    let items: any[] = []
+    if (Array.isArray(res)) items = res
+    else items = res.items ?? []
+
+    txs.value = items.map(normalizeTx)
+    txTotal.value = (Array.isArray(res) ? res.length : (res.total ?? txs.value.length))
+  } catch (err) {
+    toast.add({ title: 'Failed to load transactions', color: 'red' })
+    txs.value = []
+    txTotal.value = 0
+  } finally {
+    txPending.value = false
+  }
 }
+
 async function loadPays(reset = false) {
   if (reset) payPage.value = 1
   payPending.value = true
@@ -339,13 +544,52 @@ async function loadPays(reset = false) {
     const res = await $api(`/admin/users/${id.value}/payments`, {
       query: { q: payQ.value || undefined, page: payPage.value, page_size: payPageSize },
     })
-    pays.value = res.items ?? []
-    payTotal.value = res.total ?? pays.value.length
-  } finally { payPending.value = false }
+
+    const normalizePay = (p: any) => {
+      const service = p?.service ?? {}
+      return {
+         id: p.id ?? p.payment_id ?? p.transaction_id ?? p.reference_number ?? null,
+        payment_id: p.payment_id ?? null,
+        transaction_id: p.transaction_id ?? null,
+        reference_number: p.reference_number ?? null,
+        method: p.method ?? p.payment_method ?? '-',
+        amount: p.amount ?? null,
+        total_amount: p.total_amount ?? null,
+        currency: p.currency ?? 'USD',
+        status: p.status ?? 'unknown',
+    
+        session_id: p.session_id ?? null,
+        acknowledgement_id: p.acknowledgement_id ?? null,
+        cdc_transaction_datetime: p.cdc_transaction_datetime ?? null,
+        cdc_transaction_datetime_utc: p.cdc_transaction_datetime_utc ?? null,
+        reversal_transaction_id: p.reversal_transaction_id ?? null,
+        reversal_acknowledgement_id: p.reversal_acknowledgement_id ?? null,
+        created_at: p.created_at ?? null,
+        confirmed_at: p.confirmed_at ?? null,
+        service_name: service?.name ?? null,
+        service_logo_url: service?.logo_url ?? null,
+        original: p,
+      }
+    }
+
+    let items: any[] = []
+    if (Array.isArray(res)) items = res
+    else items = res.items ?? []
+
+    pays.value = items.map(normalizePay)
+    payTotal.value = (Array.isArray(res) ? res.length : (res.total ?? pays.value.length))
+  } catch (err) {
+    toast.add({ title: 'Failed to load payments', color: 'red' })
+    pays.value = []
+    payTotal.value = 0
+  } finally {
+    payPending.value = false
+  }
 }
+
 async function loadCurrencies() {
   try { currencyOptions.value = await $api('/admin/users/meta/currencies') }
-  catch { /* fallback */ }
+  catch {}
 }
 
 /* ---------- Actions ---------- */
@@ -373,6 +617,11 @@ function openEditBalance(acc: any) {
   editBalanceValue.value = acc?.balance ?? 0
   showEditBalance.value = true
 }
+function getLogoUrl(path?: string) {
+  if (!path) return ''
+  return path.startsWith('/') ? `${useRuntimeConfig().public.apiBase}${path}` : path
+}
+
 
 async function saveBalance() {
   if (!editingAcc.value) return
@@ -416,6 +665,41 @@ function goPay(p: number) { payPage.value = Math.min(Math.max(1, p), payTotalPag
 function reloadTxs() { loadTxs(true) }
 function reloadPays() { loadPays(true) }
 
+
+
+
+const statusVariant = computed(() => {
+  const s = (selectedPayment?.status ?? '').toLowerCase()
+  return s === 'confirmed' || s === 'success' ? 'success'
+    : s === 'started' || s === 'pending' ? 'warning'
+    : s === 'failed' || s === 'error' ? 'error'
+    : s === 'reversed' || s === 'reversed' ? 'gray'
+    : 'info'
+})
+
+async function copyField(text?: string | null, label = 'Value') {
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(String(text))
+    toast.add({ title: `${label} copied to clipboard`, color: 'success' })
+  } catch (e) {
+    toast.add({ title: `Failed to copy ${label}`, color: 'error' })
+  }
+}
+
+function openTransaction(txId?: number | null) {
+  if (!txId) return
+  // open admin transaction page or show toast if not available
+  const url = `/admin/transactions/${txId}`
+  // try to navigate with Nuxt
+  try {
+    navigateTo(url)
+    showPaymentDetail.value = false
+  } catch {
+    window.open(url, '_blank')
+  }
+}
+
 let txTimer: any = null
 let payTimer: any = null
 function onTxInput() { clearTimeout(txTimer); txTimer = setTimeout(() => reloadTxs(), 400) }
@@ -426,3 +710,4 @@ onMounted(async () => {
   await Promise.all([loadUser(), loadAccounts(), loadTxs(), loadPays(), loadCurrencies()])
 })
 </script>
+

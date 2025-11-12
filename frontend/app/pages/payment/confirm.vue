@@ -112,6 +112,7 @@
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
 import { formatCurrency, convertToUSD, USD_TO_KHR_RATE } from '~/utils/helpers'
+import { useToast } from '~/composables/useToast'
 
 const { $api } = useNuxtApp()
 const payment = useState<any>('payment')
@@ -119,7 +120,7 @@ const pin = ref<string[]>(['', '', '', ''])
 const pinInputs = ref<HTMLInputElement[]>([])
 const confirming = ref(false)
 const error = ref('')
-const { show } = useToast()
+const toast = useToast()
 const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
 
@@ -143,7 +144,7 @@ const handleBackspace = (index: number, e: KeyboardEvent) => {
 
 const confirmPayment = async () => {
   if (!payment.value?.id) {
-    show('Invalid payment session. Please start again.', 'error')
+    toast.show('Invalid payment session. Please start again.', 'error')
     navigateTo('/payment/invoice')
     return
   }
@@ -155,11 +156,11 @@ const confirmPayment = async () => {
       method: 'POST',
     })
     payment.value = { ...payment.value, ...res, status: 'confirmed' }
-    show('Payment confirmed successfully!', 'success')
+    toast.show('Payment confirmed successfully!', 'success')
     navigateTo('/payment/success')
   } catch (err: any) {
     error.value = err.response?._data?.detail || 'Failed to confirm payment.'
-    show(error.value, 'error')
+    toast.show(error.value, 'error')
   } finally {
     confirming.value = false
   }

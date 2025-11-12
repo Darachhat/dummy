@@ -204,6 +204,7 @@ async def confirm_payment(
             user_id=user_id,
             account_id=account.id,
             payment_id=payment.id,
+            transaction_id=transaction_id,
             reference_number=payment.reference_number,
             amount=payment.total_amount,
             currency=payment.currency,
@@ -232,7 +233,7 @@ async def confirm_payment(
 
         return {
             "status": "confirmed",
-            "transaction_id": tx.id,
+            "transaction_id": tx.transaction_id,
             "account_id": account.id,
             "reference_number": payment.reference_number,
             "customer_name": payment.customer_name,

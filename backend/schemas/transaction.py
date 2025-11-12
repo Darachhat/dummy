@@ -6,7 +6,7 @@ from typing import Optional
 
 class TransactionOut(BaseModel):
     id: int
-    transaction_id: int
+    transaction_id: Optional[str] = None
     reference_number: Optional[str]
     description: Optional[str]
     amount: Decimal
