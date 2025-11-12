@@ -11,7 +11,8 @@ import logging
 import httpx 
 from fastapi.responses import JSONResponse
 from datetime import datetime, timedelta, timezone
-from core.utils.timezone import to_local_time  
+from core.utils.timezone import to_local_time
+from core.utils.txid import generate_transaction_id_from_id
 
 
 # Dynamic import for mock or real OSP client
@@ -204,7 +205,6 @@ async def confirm_payment(
             user_id=user_id,
             account_id=account.id,
             payment_id=payment.id,
-            transaction_id=transaction_id,
             reference_number=payment.reference_number,
             amount=payment.total_amount,
             currency=payment.currency,
@@ -217,9 +217,17 @@ async def confirm_payment(
         db.commit()
         db.refresh(tx)
 
+        try:
+            tx.transaction_id = generate_transaction_id_from_id(tx.id, tx.created_at or datetime.utcnow())
+            db.add(tx)
+            db.commit()
+            db.refresh(tx)
+        except Exception:
+            db.rollback()
+
         # --- Confirm Payment ---
         ack_id = payment.acknowledgement_id
-        confirm_res = await osp_confirm(payment.reference_number, transaction_id, ack_id)
+        confirm_res = await osp_confirm(payment.reference_number, tx.transaction_id, ack_id)
         logger.info(f"[OSP Confirm Response] {confirm_res}")
 
         if confirm_res.get("response_code") != 200:
@@ -233,7 +241,7 @@ async def confirm_payment(
 
         return {
             "status": "confirmed",
-            "transaction_id": tx.transaction_id,
+            "transaction_id": tx.transaction_id or str(tx.id),
             "account_id": account.id,
             "reference_number": payment.reference_number,
             "customer_name": payment.customer_name,
