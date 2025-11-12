@@ -14,6 +14,12 @@ class AccountOut(BaseModel):
     class Config:
         from_attributes = True
 
+class AccountCreate(BaseModel):
+    name: str
+    number: str
+    balance: Decimal = Decimal("0.00")
+    currency: str
+
 class AccountUpdate(BaseModel):
     balance: Decimal
 

@@ -11,3 +11,10 @@
   width: 100%;
   margin: 0.1rem 0;
 }
+
+.btn-dark {
+  @apply bg-gray-800 text-white hover:bg-gray-700 active:bg-gray-900 focus:ring-2 focus:ring-gray-400 focus:outline-none transition;
+}
+.btn-outline-dark {
+  @apply border border-gray-800 text-gray-800 hover:bg-gray-800 hover:border-0 active:border-0 hover:text-white active:bg-gray-900 transition;
+}

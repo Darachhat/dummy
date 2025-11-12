@@ -18,7 +18,7 @@ from models.service import Service
 
 # Schemas (keep these as-is in your codebase)
 from schemas.user import UserCreate, UserOut, UserUpdate as UserUpdateSchema
-from schemas.account import AccountOut
+from schemas.account import AccountOut, AccountCreate
 from schemas.transaction import TransactionOut
 from schemas.payment import PaymentConfirmOut
 
@@ -27,6 +27,8 @@ router = APIRouter(
     tags=["Admin: User Management"],
     dependencies=[Depends(require_admin)],
 )
+
+SUPPORTED_CURRENCIES = ["USD", "KHR"]
 
 
 # --- Database session dependency ---
@@ -48,7 +50,6 @@ def list_users(
     sort: Optional[str] = "created_at",
     dir: Optional[str] = "desc",
 ):
-    """Paginated list of users for admin UI."""
     query = db.query(User)
 
     # --- Search ---
@@ -102,10 +103,6 @@ def get_user(
     page: int = Query(1, ge=1),
     db: Session = Depends(get_db),
 ):
-    """
-    Return user basic info and optionally accounts, transactions and payments.
-    Note: response is a dict (not UserOut) to include nested lists.
-    """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -226,10 +223,6 @@ def update_user(
     payload: dict = Body(...),
     db: Session = Depends(get_db),
 ):
-    """
-    Update user fields. Accepts JSON body with any of:
-    { "name": "...", "phone": "...", "role": "...", "password": "...", "pin": "..." }
-    """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -307,10 +300,6 @@ def user_transactions(
     direction: Optional[str] = Query(None, description="Transaction direction: debit or credit"),
     service_name: Optional[str] = Query(None, description="Filter by service name"),
 ):
-    """
-    Get user's transactions. Returns TransactionOut list.
-    When filtering by service_name we join Payment->Service safely via aliases.
-    """
     # base query with eager load for payment->service
     q = (
         db.query(Transaction)
@@ -422,3 +411,40 @@ def user_payments(
             )
         )
     return results
+
+@router.get("/meta/currencies", response_model=list[str])
+def list_currencies():
+    return SUPPORTED_CURRENCIES
+
+
+@router.post("/{user_id}/accounts", response_model=AccountOut)
+def create_user_account(
+    user_id: int,
+    data: AccountCreate,
+    db: Session = Depends(get_db),
+):
+    # ensure user exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # unique number check
+    exists = db.query(Account).filter(Account.number == data.number).first()
+    if exists:
+        raise HTTPException(status_code=400, detail="Account number already exists")
+
+    # validate currency
+    if data.currency not in SUPPORTED_CURRENCIES:
+        raise HTTPException(status_code=400, detail="Unsupported currency")
+
+    acc = Account(
+        user_id=user.id,
+        name=data.name,
+        number=data.number,
+        balance=data.balance,
+        currency=data.currency,
+    )
+    db.add(acc)
+    db.commit()
+    db.refresh(acc)
+    return acc
