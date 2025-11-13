@@ -1,3 +1,4 @@
+// frontend\app\plugins\api.ts
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
   const base = config.public.apiBase

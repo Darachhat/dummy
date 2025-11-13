@@ -1,3 +1,4 @@
+// frontend/app/composables/useAuth.ts
 export const useAuth = () => {
   const { $api, $token } = useNuxtApp()
   const me = useState<any>('me', () => null)
