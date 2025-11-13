@@ -1,5 +1,5 @@
 # backend/api/routes/admin/user_management.py
-from fastapi import APIRouter, Depends, HTTPException, Query, Body,Path
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Path
 from sqlalchemy.orm import Session, joinedload, aliased
 from typing import List, Optional
 from decimal import Decimal, InvalidOperation
@@ -9,7 +9,7 @@ from core.security import hash_password
 from core.permissions import require_admin
 from db.session import SessionLocal
 
-#helper
+# helper
 from os import getenv
 
 # Models
@@ -45,7 +45,6 @@ def get_khr_per_usd() -> Decimal:
         return Decimal(USD_TO_KHR_RATE)
     except (InvalidOperation, TypeError):
         return Decimal("4000")
-    
 
 
 # --- Database session dependency ---
@@ -108,6 +107,7 @@ def list_users(
         "page_size": page_size,
     }
 
+
 # --- Get user detail (with optional relations) ---
 @router.get("/{user_id}")
 def get_user(
@@ -155,6 +155,7 @@ def get_user(
         total_tx = tx_q.count()
         txs = tx_q.offset(offset).limit(limit).all()
 
+        # When a transaction is tied to a payment, prefer the payment's invoice_amount + invoice_currency for display
         result["transactions"] = {
             "page": page,
             "limit": limit,
@@ -163,12 +164,31 @@ def get_user(
                 {
                     "id": t.id,
                     "reference_number": getattr(t, "reference_number", None),
-                    "amount": float(t.amount) if t.amount is not None else 0.0,
-                    "currency": t.currency,
+                    # Prefer payment.invoice_amount (original invoice) when present, otherwise transaction amount
+                    "amount": float(
+                        (t.payment.invoice_amount if getattr(t, "payment", None) and getattr(t.payment, "invoice_amount", None) is not None
+                         else (t.amount if t.amount is not None else 0.0))
+                    ),
+                    # currency: prefer payment.invoice_currency, then payment.currency, then transaction currency, fallback USD
+                    "currency": (
+                        (t.payment.invoice_currency if getattr(t, "payment", None) and getattr(t.payment, "invoice_currency", None) else None)
+                        or (t.payment.currency if getattr(t, "payment", None) and getattr(t.payment, "currency", None) else None)
+                        or (t.currency if getattr(t, "currency", None) else "USD")
+                    ),
                     "direction": t.direction,
                     "description": t.description or "",
                     "service_name": (t.payment.service.name if t.payment and t.payment.service else None),
                     "created_at": t.created_at.isoformat() if t.created_at else None,
+                    # expose raw payment object so UI can decide if anything else needed
+                    "original_payment": {
+                        "id": getattr(t.payment, "id", None),
+                        "amount": float(t.payment.amount) if getattr(t, "payment", None) and getattr(t.payment, "amount", None) is not None else None,
+                        "total_amount": float(t.payment.total_amount) if getattr(t, "payment", None) and getattr(t.payment, "total_amount", None) is not None else None,
+                        "currency": getattr(t.payment, "currency", None),
+                        "invoice_amount": float(t.payment.invoice_amount) if getattr(t, "payment", None) and getattr(t.payment, "invoice_amount", None) is not None else None,
+                        "invoice_currency": getattr(t.payment, "invoice_currency", None) if getattr(t, "payment", None) else None,
+                        "status": getattr(t.payment, "status", None),
+                    },
                 }
                 for t in txs
             ],
@@ -186,6 +206,7 @@ def get_user(
         total_pay = pay_q.count()
         pays = pay_q.offset(offset).limit(limit).all()
 
+        # Build items with clear invoice_amount/invoice_currency fields and a display pair (amount + currency)
         result["payments"] = {
             "page": page,
             "limit": limit,
@@ -194,12 +215,37 @@ def get_user(
                 {
                     "id": p.id,
                     "reference_number": p.reference_number,
-                    "amount": float(p.amount) if p.amount is not None else 0.0,
-                    "currency": p.currency,
+                    # explicit invoice fields (original invoice that user was billed)
+                    "invoice_amount": float(p.invoice_amount) if getattr(p, "invoice_amount", None) is not None else None,
+                    "invoice_currency": (p.invoice_currency if getattr(p, "invoice_currency", None) else None),
+                    # amount: prefer invoice_amount when present; otherwise fall back to stored amount or total_amount
+                    "amount": float(p.invoice_amount) if getattr(p, "invoice_amount", None) is not None
+                              else (float(p.amount) if getattr(p, "amount", None) is not None else (float(p.total_amount) if getattr(p, "total_amount", None) is not None else 0.0)),
+                    "fee": float(p.fee) if p.fee is not None else 0.0,
+                    "total_amount": float(p.total_amount) if p.total_amount is not None else None,
+                    # currency: prefer invoice_currency (belongs to invoice), else payment.currency
+                    "currency": (p.invoice_currency or p.currency or "USD"),
                     "status": p.status,
                     "service_name": p.service.name if p.service else None,
                     "transaction_id": getattr(p.transaction, "transaction_id", None),
                     "created_at": p.created_at.isoformat() if p.created_at else None,
+                    # include raw/original representation for frontend debugging
+                    "original_payment": {
+                        "id": p.id,
+                        "reference_number": p.reference_number,
+                        "customer_name": p.customer_name,
+                        "amount": float(p.amount) if p.amount is not None else None,
+                        "fee": float(p.fee) if p.fee is not None else None,
+                        "total_amount": float(p.total_amount) if p.total_amount is not None else None,
+                        "currency": p.currency,
+                        "invoice_currency": p.invoice_currency,
+                        "invoice_amount": float(p.invoice_amount) if getattr(p, "invoice_amount", None) is not None else None,
+                        "session_id": p.session_id,
+                        "acknowledgement_id": p.acknowledgement_id,
+                        "cdc_transaction_datetime": p.cdc_transaction_datetime,
+                        "cdc_transaction_datetime_utc": p.cdc_transaction_datetime_utc,
+                        "status": p.status,
+                    },
                 }
                 for p in pays
             ],
@@ -293,7 +339,7 @@ def get_user_accounts(user_id: int, db: Session = Depends(get_db)):
 def update_account_balance(
     user_id: int,
     account_id: int,
-    payload: dict = Body(...), 
+    payload: dict = Body(...),
     db: Session = Depends(get_db),
 ):
     account = db.query(Account).filter(Account.id == account_id, Account.user_id == user_id).first()
@@ -417,25 +463,32 @@ def user_transactions(
     for t in txs:
         p = getattr(t, "payment", None)
         s = p.service if p and getattr(p, "service", None) else None
+
+        # prefer invoice_amount/currency for display when available
+        display_amount = (p.invoice_amount if p and getattr(p, "invoice_amount", None) is not None else (p.amount if p and getattr(p, "amount", None) is not None else t.amount))
+        display_currency = (p.invoice_currency if p and getattr(p, "invoice_currency", None) else (p.currency if p and getattr(p, "currency", None) else (t.currency or "USD")))
+
         results.append(
             TransactionOut(
                 id=t.id,
                 transaction_id=t.transaction_id,
                 reference_number=getattr(p, "reference_number", None) if p else getattr(t, "reference_number", None),
                 description=t.description or "",
-                amount=(p.amount if p and p.amount is not None else t.amount),
+                amount=display_amount,
                 fee=(p.fee if p and p.fee is not None else Decimal("0.00")),
                 total_amount=(p.total_amount if p and p.total_amount is not None else (t.amount or Decimal("0.00"))),
                 customer_name=(p.customer_name if p else None),
                 service_name=(s.name if s else None),
                 service_logo_url=(s.logo_url if s else None),
                 direction=t.direction,
-                currency=t.currency,
+                currency=display_currency,
                 created_at=(t.created_at.isoformat() if t.created_at else None),
             )
         )
     return results
-# --- Payments
+
+
+# --- Payments ---
 @router.get("/{user_id}/payments", response_model=List[PaymentConfirmOut])
 def user_payments(
     user_id: int,
@@ -469,6 +522,13 @@ def user_payments(
 
     results = []
     for p in payments:
+        # determine display amount/currency: prefer invoice_amount/invoice_currency if available
+        invoice_amount_present = getattr(p, "invoice_amount", None) is not None
+        invoice_amt = Decimal(p.invoice_amount) if invoice_amount_present else None
+
+        display_amount = invoice_amt if invoice_amount_present else (p.amount if getattr(p, "amount", None) is not None else p.total_amount)
+        display_currency = (p.invoice_currency or p.currency or "USD")
+
         results.append(
             PaymentConfirmOut(
                 status=p.status,
@@ -477,10 +537,12 @@ def user_payments(
                 new_balance=Decimal("0.00"),
                 reference_number=p.reference_number,
                 customer_name=p.customer_name,
-                amount=p.amount,
+                # Keep numeric fields as-is (schemas should accept Decimal/float)
+                amount=display_amount,
                 fee=p.fee,
                 total_amount=p.total_amount,
-                currency=p.currency,
+                # Explicit currency for frontend to use with the display amount
+                currency=display_currency,
                 service={
                     "id": p.service.id if p.service else None,
                     "name": p.service.name if p.service else None,
@@ -497,6 +559,7 @@ def user_payments(
             )
         )
     return results
+
 
 @router.get("/meta/currencies", response_model=list[str])
 def list_currencies():

@@ -5,7 +5,7 @@
     <div class="hidden md:flex justify-between items-center">
       <div class="flex items-center gap-3">
         <NuxtLink to="/adm/users" class="px-3 py-1 border rounded-xl hover:bg-gray-50">Back</NuxtLink>
-        <h2 class="text-2xl font-bold text-gray-800">{{ form.name}}</h2>
+        <h2 class="text-2xl font-bold text-gray-800">{{ form.name }}</h2>
       </div>
       <UButton class="btn-dark" icon="i-lucide-save" :loading="saving" @click="saveUser">Save</UButton>
     </div>
@@ -24,17 +24,18 @@
       </template>
 
       <div class="grid md:grid-cols-2 gap-4">
-        <UFormField  label="Name" >
+        <UFormField label="Name">
           <UInput v-model.trim="form.name" color="neutral" placeholder="Full name" @blur="touched = true" />
         </UFormField>
 
-        <UFormField  label="Phone" >
+        <UFormField label="Phone">
           <UInput v-model.trim="form.phone" inputmode="tel" color="neutral" placeholder="Phone number" @input="digitsPhone" @blur="touched = true" />
         </UFormField>
 
-        <UFormField  label="Role">
+        <UFormField label="Role">
           <USelect
-            v-model="form.role" color="neutral"
+            v-model="form.role"
+            color="neutral"
             :items="[{ label: 'User', value: 'user' }, { label: 'Admin', value: 'admin' }]"
             placeholder="Select role"
           />
@@ -79,7 +80,7 @@
 
       <UTable :data="accounts" :columns="accountColumns" :loading="accPending" class="min-w-full">
         <template #balance-cell="{ row }">
-          {{ formatMoney(row.original.balance, row.original.currency) }}
+          {{ formatMoney(row.original.balance, row.original.currency || 'USD') }}
         </template>
 
         <template #actions-cell="{ row }">
@@ -109,40 +110,40 @@
         </div>
       </template>
 
-   <UTable :data="txs" :columns="transactionColumns" :loading="txPending" class="min-w-full">
-  <template #reference_number-cell="{ row }">
-    <div class="truncate max-w-xs">{{ row.original?.reference_number ?? '-' }}</div>
-  </template>
+      <UTable :data="txs" :columns="transactionColumns" :loading="txPending" class="min-w-full">
+        <template #reference_number-cell="{ row }">
+          <div class="truncate max-w-xs">{{ row.original?.reference_number ?? '-' }}</div>
+        </template>
 
-  <template #service_name-cell="{ row }">
-    <div class="flex items-center gap-2">
-      <img
-        v-if="row.original?.service_logo_url"
-        :src="getLogoUrl(row.original.service_logo_url)"
-        class="w-6 h-6 rounded-full object-contain"
-      />
-      <span>{{ row.original?.service_name ?? '-' }}</span>
-    </div>
-  </template>
+        <template #service_name-cell="{ row }">
+          <div class="flex items-center gap-2">
+            <img
+              v-if="row.original?.service_logo_url"
+              :src="getLogoUrl(row.original.service_logo_url)"
+              class="w-6 h-6 rounded-full object-contain"
+            />
+            <span>{{ row.original?.service_name ?? '-' }}</span>
+          </div>
+        </template>
 
-  <template #amount-cell="{ row }">
-    {{ formatMoney(row.original?.amount, row.original?.currency || 'USD') }}
-  </template>
+        <template #amount-cell="{ row }">
+          <!-- Amount = invoice/original amount with its invoice currency -->
+          {{ formatMoney(row.original?.amount, row.original?.currency || 'USD') }}
+        </template>
 
-  <template #total_amount-cell="{ row }">
-    {{ formatMoney(row.original?.total_amount ?? row.original?.totalAmount, row.original?.currency || 'USD') }}
-  </template>
+        <template #total_amount-cell="{ row }">
+          <!-- Total = USD-debited amount (total_amount) -->
+          {{ formatMoney(row.original?.total_amount, 'USD') }}
+        </template>
 
-  <template #created_at-cell="{ row }">
-    {{ formatDate(row.original?.created_at ?? row.original?.cdc_transaction_datetime) }}
-  </template>
+        <template #created_at-cell="{ row }">
+          {{ formatDate(row.original?.created_at ?? row.original?.cdc_transaction_datetime) }}
+        </template>
 
-  <template #empty>
-    <div class="text-center py-6 text-gray-500">No transactions found</div>
-  </template>
-</UTable>
-
-
+        <template #empty>
+          <div class="text-center py-6 text-gray-500">No transactions found</div>
+        </template>
+      </UTable>
 
       <template #footer>
         <div class="flex justify-between items-center text-sm text-gray-600">
@@ -163,38 +164,36 @@
         </div>
       </template>
 
-<UTable :data="pays" :columns="paymentColumns" :loading="payPending" class="min-w-full">
-  <template #reference_number-cell="{ row }">
-    <div class="truncate max-w-xs">{{ row.original?.reference_number ?? '-' }}</div>
-  </template>
+      <UTable :data="pays" :columns="paymentColumns" :loading="payPending" class="min-w-full">
+        <template #reference_number-cell="{ row }">
+          <div class="truncate max-w-xs">{{ row.original?.reference_number ?? '-' }}</div>
+        </template>
 
-  <template #method-cell="{ row }">
-    {{ row.original?.method ?? row.original?.payment_method ?? '-' }}
-  </template>
+        <template #method-cell="{ row }">
+          {{ row.original?.method ?? row.original?.payment_method ?? '-' }}
+        </template>
 
-  <template #amount-cell="{ row }">
-    {{ formatMoney(row.original?.amount, row.original?.currency || 'USD') }}
-  </template>
+        <template #amount-cell="{ row }">
+          <!-- Amount: show original/invoice amount + invoice currency -->
+          {{ formatMoney(row.original?.amount, row.original?.currency || 'USD') }}
+        </template>
 
-  <template #created_at-cell="{ row }">
-    {{ formatDate(row.original?.created_at ?? row.original?.cdc_payment_datetime) }}
-  </template>
+        <template #created_at-cell="{ row }">
+          {{ formatDate(row.original?.created_at ?? row.original?.cdc_payment_datetime) }}
+        </template>
 
-  <template #status-cell="{ row }">
-    <UBadge :label="row.original?.status ?? 'unknown'" :color="(row.original?.status === 'paid') ? 'green' : 'orange'" />
-  </template>
+        <template #status-cell="{ row }">
+          <UBadge :label="row.original?.status ?? 'unknown'" :color="(row.original?.status === 'paid' || row.original?.status === 'confirmed') ? 'green' : 'orange'" />
+        </template>
 
-  <template #actions-cell="{ row }">
-  <UButton size="sm" variant="outline" color="neutral" @click="openPaymentDetail(row.original)">Details</UButton>
-</template>
+        <template #actions-cell="{ row }">
+          <UButton size="sm" variant="outline" color="neutral" @click="openPaymentDetail(row.original)">Details</UButton>
+        </template>
 
-
-  <template #empty>
-    <div class="text-center py-6 text-gray-500">No payments found</div>
-  </template>
-</UTable>
-
-
+        <template #empty>
+          <div class="text-center py-6 text-gray-500">No payments found</div>
+        </template>
+      </UTable>
 
       <template #footer>
         <div class="flex justify-between items-center text-sm text-gray-600">
@@ -215,21 +214,21 @@
             <UInput color="neutral" v-model.trim="newAccount.name" placeholder="e.g. Main Wallet" />
           </UFormField>
           <UFormField label="Account Number" required>
-            <UInput color="neutral"  v-model.trim="newAccount.number" placeholder="e.g. 000-000-000 " />
+            <UInput color="neutral" v-model.trim="newAccount.number" placeholder="e.g. 000-000-000 " />
           </UFormField>
           <div class="grid sm:grid-cols-2 gap-4">
             <UFormField label="Initial Balance" required>
-              <UInput color="neutral"  v-model.number="newAccount.balance" inputmode="decimal" placeholder="0.00" />
+              <UInput color="neutral" v-model.number="newAccount.balance" inputmode="decimal" placeholder="0.00" />
             </UFormField>
             <UFormField label="Currency" required>
-              <USelect color="neutral"  v-model="newAccount.currency" :items="currencyOptions" placeholder="Select currency" />
+              <USelect color="neutral" v-model="newAccount.currency" :items="currencyOptions" placeholder="Select currency" />
             </UFormField>
           </div>
         </div>
       </template>
       <template #footer>
-          <div class="flex justify-end gap-2">
-            <UButton variant="outline" color="neutral" @click="showAddAccount=false">Cancel</UButton>
+        <div class="flex justify-end gap-2">
+          <UButton variant="outline" color="neutral" @click="showAddAccount=false">Cancel</UButton>
           <UButton class="btn-dark" :disabled="!newAccount.name || !newAccount.number" :loading="addingAcc" @click="addAccount">
             Add
           </UButton>
@@ -253,122 +252,118 @@
     </UModal>
 
     <!-- PAYMENT DETAIL MODAL -->
-<UModal v-model:open="showPaymentDetail" title="Payment Details" class="max-w-2xl">
-  <template #header>
-    <div class="flex items-center justify-between w-full">
-      <div class="flex items-center gap-3">
-        <div class="text-sm text-gray-600">Reference</div>
-        <div class="font-medium text-lg break-all">{{ selectedPayment?.reference_number ?? '-' }}</div>
-      </div>
+    <UModal v-model:open="showPaymentDetail" title="Payment Details" class="max-w-2xl">
+      <template #header>
+        <div class="flex items-center justify-between w-full">
+          <div class="flex items-center gap-3">
+            <div class="text-sm text-gray-600">Reference</div>
+            <div class="font-medium text-lg break-all">{{ selectedPayment?.reference_number ?? '-' }}</div>
+          </div>
 
-      <div class="flex items-center gap-3">
-        <UBadge :label="selectedPayment?.status ?? 'unknown'" :color="statusVariant" />
-        <div v-if="selectedPayment?.service_name" class="flex items-center gap-2">
-          <img
-            v-if="selectedPayment?.service_logo_url"
-            :src="getLogoUrl(selectedPayment.service_logo_url)"
-            alt="service"
-            class="w-8 h-8 rounded-md object-contain border"
-          />
-          <div class="text-sm text-gray-700">{{ selectedPayment?.service_name }}</div>
+          <div class="flex items-center gap-3">
+            <UBadge :label="selectedPayment?.status ?? 'unknown'" :color="statusVariant" />
+            <div v-if="selectedPayment?.service_name" class="flex items-center gap-2">
+              <img
+                v-if="selectedPayment?.service_logo_url"
+                :src="getLogoUrl(selectedPayment.service_logo_url)"
+                alt="service"
+                class="w-8 h-8 rounded-md object-contain border"
+              />
+              <div class="text-sm text-gray-700">{{ selectedPayment?.service_name }}</div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </template>
+      </template>
 
-  <template #body>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-      <div class="space-y-2">
-        <label class="text-xs text-gray-500">Session ID</label>
-        <div class="flex items-center gap-2">
-          <div class="truncate text-slate-700">{{ selectedPayment?.session_id ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.session_id" @click="copyField(selectedPayment?.session_id, 'Session ID')" />
+      <template #body>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div class="space-y-2">
+            <label class="text-xs text-gray-500">Session ID</label>
+            <div class="flex items-center gap-2">
+              <div class="truncate text-slate-700">{{ selectedPayment?.session_id ?? '-' }}</div>
+              <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.session_id" @click="copyField(selectedPayment?.session_id, 'Session ID')" />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs text-gray-500">Acknowledgement ID</label>
+            <div class="flex items-center gap-2">
+              <div class="truncate text-slate-700">{{ selectedPayment?.acknowledgement_id ?? '-' }}</div>
+              <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.acknowledgement_id" @click="copyField(selectedPayment?.acknowledgement_id, 'Acknowledgement ID')" />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs text-gray-500">CDC Transaction Datetime</label>
+            <div class="flex items-center gap-2">
+              <div class="truncate text-slate-700">{{ selectedPayment?.cdc_transaction_datetime ?? selectedPayment?.created_at ?? '-' }}</div>
+              <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!(selectedPayment?.cdc_transaction_datetime || selectedPayment?.created_at)" @click="copyField(selectedPayment?.cdc_transaction_datetime ?? selectedPayment?.created_at, 'CDC local')" />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs text-gray-500">CDC Transaction Datetime UTC</label>
+            <div class="flex items-center gap-2">
+              <div class="truncate text-slate-700">{{ selectedPayment?.cdc_transaction_datetime_utc ?? '-' }}</div>
+              <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.cdc_transaction_datetime_utc" @click="copyField(selectedPayment?.cdc_transaction_datetime_utc, 'CDC UTC')" />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs text-gray-500">Reversal Transaction ID</label>
+            <div class="flex items-center gap-2">
+              <div class="truncate text-slate-700">{{ selectedPayment?.reversal_transaction_id ?? '-' }}</div>
+              <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_transaction_id" @click="copyField(selectedPayment?.reversal_transaction_id, 'Reversal Tx')" />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs text-gray-500">Reversal Acknowledgement ID</label>
+            <div class="flex items-center gap-2">
+              <div class="truncate text-slate-700">{{ selectedPayment?.reversal_acknowledgement_id ?? '-' }}</div>
+              <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_acknowledgement_id" @click="copyField(selectedPayment?.reversal_acknowledgement_id, 'Reversal Ack')" />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs text-gray-500">Confirmed At</label>
+            <div class="text-slate-700">{{ selectedPayment?.confirmed_at ?? '-' }}</div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs text-gray-500">Created At</label>
+            <div class="text-slate-700">{{ selectedPayment?.created_at ?? '-' }}</div>
+          </div>
+
+          <div class="col-span-1 sm:col-span-2 pt-2">
+            <label class="text-xs text-gray-500">Raw </label>
+            <div class="mt-1 p-3 bg-gray-50 rounded-md text-xs text-gray-700 break-words max-h-36 overflow-auto">
+              <pre class="whitespace-pre-wrap text-xs m-0">{{ JSON.stringify(selectedPayment?.original ?? selectedPayment ?? {}, null, 2) }}</pre>
+            </div>
+          </div>
         </div>
-      </div>
+      </template>
 
-      <div class="space-y-2">
-        <label class="text-xs text-gray-500">Acknowledgement ID</label>
-        <div class="flex items-center gap-2">
-          <div class="truncate text-slate-700">{{ selectedPayment?.acknowledgement_id ?? '-' }}</div>
-          <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-copy" :disabled="!selectedPayment?.acknowledgement_id" @click="copyField(selectedPayment?.acknowledgement_id, 'Acknowledgement ID')" />
+      <template #footer>
+        <div class="flex items-center justify-between w-full">
+          <div class="flex gap-2">
+            <UButton variant="outline" color="neutral" @click="copyField(selectedPayment?.reference_number, 'Reference')" :disabled="!selectedPayment?.reference_number">
+              <i class="i-lucide-copy mr-2"></i> Copy Reference
+            </UButton>
+            <UButton variant="outline" color="neutral" @click="openTransaction(selectedPayment?.id ?? selectedPayment?.transaction_id)" :disabled="!selectedPayment?.transaction_id">
+              <i class="i-lucide-external-link mr-2"></i> Open Transaction
+            </UButton>
+          </div>
+
+          <div class="flex gap-2">
+            <UButton variant="ghost" color="neutral" @click="showPaymentDetail = false">Close</UButton>
+            <UButton class="btn-dark" @click="showPaymentDetail = false">Done</UButton>
+          </div>
         </div>
-      </div>
-
-      <div class="space-y-2">
-        <label class="text-xs text-gray-500">CDC Transaction Datetime</label>
-        <div class="flex items-center gap-2">
-          <div class="truncate text-slate-700">{{ selectedPayment?.cdc_transaction_datetime ?? selectedPayment?.created_at ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!(selectedPayment?.cdc_transaction_datetime || selectedPayment?.created_at)" @click="copyField(selectedPayment?.cdc_transaction_datetime ?? selectedPayment?.created_at, 'CDC local')" />
-        </div>
-      </div>
-
-      <div class="space-y-2">
-        <label class="text-xs text-gray-500">CDC Transaction Datetime UTC</label>
-        <div class="flex items-center gap-2">
-          <div class="truncate text-slate-700">{{ selectedPayment?.cdc_transaction_datetime_utc ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.cdc_transaction_datetime_utc" @click="copyField(selectedPayment?.cdc_transaction_datetime_utc, 'CDC UTC')" />
-        </div>
-      </div>
-
-      <div class="space-y-2">
-        <label class="text-xs text-gray-500">Reversal Transaction ID</label>
-        <div class="flex items-center gap-2">
-          <div class="truncate text-slate-700">{{ selectedPayment?.reversal_transaction_id ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_transaction_id" @click="copyField(selectedPayment?.reversal_transaction_id, 'Reversal Tx')" />
-        </div>
-      </div>
-
-      <div class="space-y-2">
-        <label class="text-xs text-gray-500">Reversal Acknowledgement ID</label>
-        <div class="flex items-center gap-2">
-          <div class="truncate text-slate-700">{{ selectedPayment?.reversal_acknowledgement_id ?? '-' }}</div>
-          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedPayment?.reversal_acknowledgement_id" @click="copyField(selectedPayment?.reversal_acknowledgement_id, 'Reversal Ack')" />
-        </div>
-      </div>
-
-      <div class="space-y-2">
-        <label class="text-xs text-gray-500">Confirmed At</label>
-        <div class="text-slate-700">{{ selectedPayment?.confirmed_at ?? '-' }}</div>
-      </div>
-
-      <div class="space-y-2">
-        <label class="text-xs text-gray-500">Created At</label>
-        <div class="text-slate-700">{{ selectedPayment?.created_at ?? '-' }}</div>
-      </div>
-
-      <div class="col-span-1 sm:col-span-2 pt-2">
-        <label class="text-xs text-gray-500">Raw </label>
-        <div class="mt-1 p-3 bg-gray-50 rounded-md text-xs text-gray-700 break-words max-h-36 overflow-auto">
-          <pre class="whitespace-pre-wrap text-xs m-0">{{ JSON.stringify(selectedPayment?.original ?? selectedPayment ?? {}, null, 2) }}</pre>
-        </div>
-      </div>
-    </div>
-  </template>
-
-  <template #footer>
-    <div class="flex items-center justify-between w-full">
-      <div class="flex gap-2">
-        <UButton variant="outline" color="neutral" @click="copyField(selectedPayment?.reference_number, 'Reference')" :disabled="!selectedPayment?.reference_number">
-          <i class="i-lucide-copy mr-2"></i> Copy Reference
-        </UButton>
-        <UButton variant="outline" color="neutral" @click="openTransaction(selectedPayment?.id ?? selectedPayment?.transaction_id)" :disabled="!selectedPayment?.transaction_id">
-          <i class="i-lucide-external-link mr-2"></i> Open Transaction
-        </UButton>
-      </div>
-
-      <div class="flex gap-2">
-        <UButton variant="ghost" color="neutral" @click="showPaymentDetail = false">Close</UButton>
-        <UButton class="btn-dark" @click="showPaymentDetail = false">Done</UButton>
-      </div>
-    </div>
-  </template>
-</UModal>
-
-   
-
+      </template>
+    </UModal>
   </div>
 </template>
-
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin' })
@@ -441,7 +436,6 @@ const paymentColumns = [
   { accessorKey: 'status', header: 'Status' },
   { accessorKey: 'created_at', header: 'Date' },
   { id: 'actions', header: 'Details' }
-
 ]
 
 const payTotalPages = computed(() => Math.max(1, Math.ceil(payTotal.value / payPageSize)))
@@ -453,14 +447,36 @@ function openPaymentDetail(p: any) {
 
 /* ---------- Utils ---------- */
 function formatDate(s?: string) { return s ? new Date(s).toLocaleString() : '-' }
+
+/**
+ * formatMoney(value, currency)
+ * - KHR => "1,234 ៛" (no decimals)
+ * - USD/other currencies => localized currency formatting
+ * - fallback: number with currency code
+ */
 function formatMoney(n?: number | string | null, c: string = 'USD') {
   if (n === null || n === undefined || n === '') return '-'
+  // convert string numbers with commas to number
   const num =
     typeof n === 'number'
       ? n
-      : (typeof n === 'string' && n.trim() !== '') ? Number(n.replace(/,/g, '')) : NaN
+      : (typeof n === 'string' && n.trim() !== '') ? Number(String(n).replace(/,/g, '')) : NaN
   if (!isFinite(num)) return '-'
-  return num.toLocaleString(undefined, { style: 'currency', currency: c, minimumFractionDigits: 2 })
+
+  const cur = (c || 'USD').toString().toUpperCase()
+
+  // Special formatting for KHR (no decimals, append Khmer symbol)
+  if (cur === 'KHR' || cur === 'RIEL' || cur === '៛') {
+    const intVal = Math.round(num)
+    return intVal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' ៛'
+  }
+
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num)
+  } catch (e) {
+    // fallback: numeric + currency code
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ` ${cur}`
+  }
 }
 
 function digitsPhone(e: any) {
@@ -506,21 +522,61 @@ async function loadTxs(reset = false) {
       query: { q: txQ.value || undefined, page: txPage.value, page_size: txPageSize },
     })
 
+    // normalize transaction - ensure amount is paired with correct currency
     const normalizeTx = (t: any) => {
+      // `t` may include payment info (t.payment) or be an already-normalized object (t.original)
+      const original = t.original ?? t
+      const p = original.payment ?? original.original_payment ?? null
+
+      // prefer payment invoice amount / invoice_currency (this is the 'Amount' you want to show)
+      let amountVal: number | null = null
+      let currencyVal = 'USD'
+
+      // invoice amount candidates (strings or numbers)
+      const invoiceAmtCandidate = p?.invoice_amount ?? p?.amount ?? original?.invoice_amount ?? null
+      const invoiceCurCandidate = p?.invoice_currency ?? original?.invoice_currency ?? p?.currency ?? original?.currency ?? null
+
+      const parseNum = (v: any) => {
+        if (v === null || v === undefined || v === '') return null
+        if (typeof v === 'number') return v
+        const s = String(v).replace(/,/g, '')
+        const n = Number(s)
+        return Number.isFinite(n) ? n : null
+      }
+
+      const invoiceAmt = parseNum(invoiceAmtCandidate)
+      const txAmt = parseNum(original?.amount ?? original?.total_amount ?? null)
+      const txCurrency = (original?.currency || p?.currency || 'USD').toString().toUpperCase()
+
+      if (invoiceAmt !== null) {
+        amountVal = invoiceAmt
+        currencyVal = (invoiceCurCandidate || txCurrency).toString().toUpperCase()
+      } else if (txAmt !== null) {
+        amountVal = txAmt
+        currencyVal = txCurrency
+      } else {
+        amountVal = null
+        currencyVal = 'USD'
+      }
+
+      // total_amount: prefer payment total_amount (usually USD-debited), otherwise transaction total_amount
+      const totalAmtCandidate = p?.total_amount ?? original?.total_amount ?? null
+      const totalAmt = parseNum(totalAmtCandidate)
+
       return {
-        id: t.id ?? t.transaction_id ?? null,
-        transaction_id: t.transaction_id ?? t.id ?? null,
-        reference_number: t.reference_number ?? t.ref ?? null,
-        amount: t.amount ?? t.total_amount ?? t.totalAmount ?? null,
-        total_amount: t.total_amount ?? t.totalAmount ?? null,
-        currency: t.currency ?? 'USD',
-        created_at: t.created_at ?? t.cdc_transaction_datetime ?? t.createdAt ?? t.timestamp ?? null,
-        service_name: t.service_name ?? (t.service?.name ?? null),
-        service_logo_url: t.service_logo_url ?? (t.service?.logo_url ?? null),
-        type: t.type ?? t.direction ?? (t.status ? String(t.status) : '-'),
-        fee: t.fee ?? null,
-        customer_name: t.customer_name ?? null,
-        original: t,
+        id: original.id ?? original.transaction_id ?? null,
+        transaction_id: original.transaction_id ?? original.id ?? null,
+        reference_number: original.reference_number ?? original.ref ?? null,
+        amount: amountVal,
+        total_amount: totalAmt,
+        currency: currencyVal,
+        created_at: original.created_at ?? original.cdc_transaction_datetime ?? original.createdAt ?? original.timestamp ?? null,
+        service_name: original.service_name ?? original.service?.name ?? (p?.service?.name ?? null),
+        service_logo_url: original.service_logo_url ?? original.service?.logo_url ?? (p?.service?.logo_url ?? null),
+        type: original.type ?? original.direction ?? (original.status ? String(original.status) : '-'),
+        fee: original.fee ?? p?.fee ?? null,
+        customer_name: original.customer_name ?? p?.customer_name ?? null,
+        original: original,
       }
     }
 
@@ -547,19 +603,66 @@ async function loadPays(reset = false) {
       query: { q: payQ.value || undefined, page: payPage.value, page_size: payPageSize },
     })
 
+    // normalize payment so amount + currency stay paired
     const normalizePay = (p: any) => {
-      const service = p?.service ?? {}
+      // raw object returned by API
+      const original = p.original ?? p
+
+      // helper to parse numbers safely (strip commas)
+      const parseNum = (v: any) => {
+        if (v === null || v === undefined || v === '') return null
+        if (typeof v === 'number') return v
+        const s = String(v).replace(/,/g, '')
+        const n = Number(s)
+        return Number.isFinite(n) ? n : null
+      }
+
+      // invoice (original) amount/currency that should be shown in Amount column
+      const invoiceAmtCandidate =
+        original.invoice_amount ?? original.amount ?? p.invoice_amount ?? p.amount ?? null
+      const invoiceCurCandidate =
+        original.invoice_currency ?? p.invoice_currency ?? original.currency ?? p.currency ?? null
+
+      const invoiceAmt = parseNum(invoiceAmtCandidate)
+      // total_amount usually is the USD debited
+      const totalAmtCandidate = p.total_amount ?? original.total_amount ?? null
+      const totalAmt = parseNum(totalAmtCandidate)
+
+      // The admin rule: Amount = invoice amount + invoice currency (show original), Total = USD debited (total_amount)
+      let displayAmount: number | null = null
+      let displayCurrency = (invoiceCurCandidate || p.currency || original.currency || 'USD').toString().toUpperCase()
+
+      if (invoiceAmt !== null) {
+        displayAmount = invoiceAmt
+        if (invoiceCurCandidate) displayCurrency = invoiceCurCandidate.toString().toUpperCase()
+      } else {
+        // fallback: if invoice missing, use stored payment amount and its currency
+        const paymentAmt = parseNum(p.amount ?? original.amount ?? null)
+        if (paymentAmt !== null) {
+          displayAmount = paymentAmt
+          displayCurrency = (p.currency || original.currency || 'USD').toString().toUpperCase()
+        } else if (totalAmt !== null) {
+          // last resort: show total amount but still mark currency based on payment
+          displayAmount = totalAmt
+          displayCurrency = (p.currency || original.currency || 'USD').toString().toUpperCase()
+        } else {
+          displayAmount = null
+          displayCurrency = (p.currency || original.currency || 'USD').toString().toUpperCase()
+        }
+      }
+
       return {
-         id: p.id ?? p.payment_id ?? p.transaction_id ?? p.reference_number ?? null,
+        id: p.id ?? p.payment_id ?? p.transaction_id ?? p.reference_number ?? null,
         payment_id: p.payment_id ?? null,
         transaction_id: p.transaction_id ?? null,
         reference_number: p.reference_number ?? null,
         method: p.method ?? p.payment_method ?? '-',
-        amount: p.amount ?? null,
-        total_amount: p.total_amount ?? null,
-        currency: p.currency ?? 'USD',
+        // normalized pair for UI:
+        amount: displayAmount,
+        currency: displayCurrency,
+        // total_amount (usually USD-debited) kept separately
+        total_amount: totalAmt,
         status: p.status ?? 'unknown',
-    
         session_id: p.session_id ?? null,
         acknowledgement_id: p.acknowledgement_id ?? null,
         cdc_transaction_datetime: p.cdc_transaction_datetime ?? null,
@@ -568,9 +671,9 @@ async function loadPays(reset = false) {
         reversal_acknowledgement_id: p.reversal_acknowledgement_id ?? null,
         created_at: p.created_at ?? null,
         confirmed_at: p.confirmed_at ?? null,
-        service_name: service?.name ?? null,
-        service_logo_url: service?.logo_url ?? null,
-        original: p,
+        service_name: p.service?.name ?? original.service?.name ?? null,
+        service_logo_url: p.service?.logo_url ?? original.service?.logo_url ?? null,
+        original: original,
       }
     }
 
@@ -624,7 +727,6 @@ function getLogoUrl(path?: string) {
   return path.startsWith('/') ? `${useRuntimeConfig().public.apiBase}${path}` : path
 }
 
-
 async function saveBalance() {
   if (!editingAcc.value) return
   savingAcc.value = true
@@ -667,9 +769,6 @@ function goPay(p: number) { payPage.value = Math.min(Math.max(1, p), payTotalPag
 function reloadTxs() { loadTxs(true) }
 function reloadPays() { loadPays(true) }
 
-
-
-
 const statusVariant = computed(() => {
   const s = (selectedPayment?.status ?? '').toLowerCase()
   return s === 'confirmed' || s === 'success' ? 'success'
@@ -691,9 +790,7 @@ async function copyField(text?: string | null, label = 'Value') {
 
 function openTransaction(txId?: number | null) {
   if (!txId) return
-  // open admin transaction page or show toast if not available
   const url = `/adm/transactions/${txId}`
-  // try to navigate with Nuxt
   try {
     navigateTo(url)
     showPaymentDetail.value = false
@@ -712,4 +809,3 @@ onMounted(async () => {
   await Promise.all([loadUser(), loadAccounts(), loadTxs(), loadPays(), loadCurrencies()])
 })
 </script>
-

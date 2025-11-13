@@ -53,7 +53,7 @@
         <div class="flex justify-between">
           <span class="text-gray-500">Amount</span>
           <span class="font-medium text-gray-800">
-             {{ formatCurrency(payment?.invoice_amount, payment?.invoice_currency || 'KHR') }}
+             {{ formatCurrency(payment?.invoice_amount, payment?.invoice_currency) }}
           </span>
         </div>
 

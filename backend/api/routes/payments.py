@@ -6,6 +6,8 @@ from api.deps import get_db, get_user_id
 from models import Payment, Transaction, Account, Service
 from schemas.payment import PaymentStartOut, PaymentConfirmOut
 from core.config import settings
+
+from core.utils.payments import mark_confirmed
 import uuid
 import logging
 import httpx
@@ -152,7 +154,7 @@ async def start_payment(
         "customer_name": payment.customer_name,
         "invoice_amount": str(invoice_amount.quantize(Decimal("0.01"))),
         "invoice_currency": invoice_currency,
-        "amount": str(invoice_converted_to_account),  # amount converted to account currency (what will be debited before fee)
+        "amount": str(invoice_converted_to_account.quantize(Decimal("0.01"))),
         "fee": str(fee_in_account_currency.quantize(Decimal("0.01"))),
         "total_amount": str(total_debit),
         "currency": account_currency,  # currency of total_amount
@@ -245,6 +247,7 @@ async def confirm_payment(
         # --- Record Transaction (use the amount actually debited from account) ---
         # payment.total_amount is stored as a float string in account currency; ensure Decimal
         debited_amount = _to_decimal(payment.total_amount).quantize(Decimal("0.01"))
+        debited_currency = (payment.currency or account.currency or "USD")
 
         tx = Transaction(
             user_id=user_id,
@@ -252,7 +255,7 @@ async def confirm_payment(
             payment_id=payment.id,
             reference_number=payment.reference_number,
             amount=float(debited_amount),  # amount debited from account
-            currency=(payment.invoice_currency or payment.currency),     # currency of the debited amount (account currency)
+            currency=debited_currency,   # currency of the debited amount (account currency)
             direction="debit",
             description=f"Payment to {payment.service.name if payment.service else ''}",
             created_at=datetime.utcnow(),
@@ -280,9 +283,8 @@ async def confirm_payment(
         if confirm_res.get("response_code") != 200:
             raise HTTPException(status_code=400, detail="OSP confirm failed")
 
-        payment.status = "confirmed"
-        payment.confirmed_at = datetime.utcnow()
-        db.commit()
+        mark_confirmed(payment, db)
+
 
         # --- Prepare local time for UI ---
         local_cdc_time = to_local_time(payment.cdc_transaction_datetime)
@@ -293,13 +295,14 @@ async def confirm_payment(
             "account_id": account.id,
             "reference_number": payment.reference_number,
             "customer_name": payment.customer_name,
-            "amount": float(_to_decimal(payment.amount).quantize(Decimal("0.01"))),
+            # Invoice values (what OSP billed)
             "invoice_amount": float(_to_decimal(payment.amount).quantize(Decimal("0.01"))),
+            "invoice_currency": payment.invoice_currency,
+            "amount": float(debited_amount),           # primary numeric amount (matches 'currency')
             "amount_debited": float(debited_amount),
             "fee": float(_to_decimal(payment.fee).quantize(Decimal("0.01"))),
-            "total_amount": float(debited_amount), 
-            "currency": payment.currency,
-            "invoice_currency": payment.invoice_currency,
+            "total_amount": float(debited_amount),
+            "currency": (payment.currency or payment.invoice_currency),
             "new_balance": float(account.balance),
             "cdc_transaction_datetime": payment.cdc_transaction_datetime.strftime("%Y-%m-%d %H:%M:%S") if payment.cdc_transaction_datetime else None,
             "cdc_transaction_datetime_utc": payment.cdc_transaction_datetime_utc.strftime("%Y-%m-%d %H:%M:%S") if payment.cdc_transaction_datetime_utc else None,
@@ -310,6 +313,7 @@ async def confirm_payment(
                 "logo_url": payment.service.logo_url if payment.service else None,
             },
         }
+
 
 
     except Exception as e:
