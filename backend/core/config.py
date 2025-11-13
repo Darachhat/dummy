@@ -1,3 +1,4 @@
+# backend/core/config.py
 from decimal import Decimal
 from pydantic_settings import BaseSettings
 from decouple import config

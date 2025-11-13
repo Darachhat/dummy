@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="hidden md:flex justify-between items-center">
       <div class="flex items-center gap-3">
-        <NuxtLink to="/admin/users" class="px-3 py-1 border rounded-xl hover:bg-gray-50">Back</NuxtLink>
+        <NuxtLink to="/adm/users" class="px-3 py-1 border rounded-xl hover:bg-gray-50">Back</NuxtLink>
         <h2 class="text-2xl font-bold text-gray-800">{{ form.name}}</h2>
       </div>
       <UButton class="btn-dark" icon="i-lucide-save" :loading="saving" @click="saveUser">Save</UButton>
@@ -375,7 +375,7 @@ definePageMeta({ layout: 'admin' })
 const route = useRoute()
 const id = computed(() => String(route.params.id))
 const { $api } = useNuxtApp()
-const toast = useToast()
+const toast = useMyToast()
 
 /* ---------- State ---------- */
 const original = ref<any>(null)
@@ -475,7 +475,7 @@ function resetForm() {
 /* ---------- Loaders ---------- */
 async function loadUser() {
   try {
-    const res = await $api(`/admin/users/${id.value}`)
+    const res = await $api(`/adm/users/${id.value}`)
     original.value = res || {}
     resetForm()
   } catch {
@@ -485,7 +485,7 @@ async function loadUser() {
 async function loadAccounts() {
   accPending.value = true
   try {
-    const res = await $api(`/admin/users/${id.value}/accounts`)
+    const res = await $api(`/adm/users/${id.value}/accounts`)
     accounts.value = res.map((acc: any) => ({
       ...acc,
       balance: Number(acc.balance ?? 0)
@@ -501,7 +501,7 @@ async function loadTxs(reset = false) {
   if (reset) txPage.value = 1
   txPending.value = true
   try {
-    const res = await $api(`/admin/users/${id.value}/transactions`, {
+    const res = await $api(`/adm/users/${id.value}/transactions`, {
       query: { q: txQ.value || undefined, page: txPage.value, page_size: txPageSize },
     })
 
@@ -542,7 +542,7 @@ async function loadPays(reset = false) {
   if (reset) payPage.value = 1
   payPending.value = true
   try {
-    const res = await $api(`/admin/users/${id.value}/payments`, {
+    const res = await $api(`/adm/users/${id.value}/payments`, {
       query: { q: payQ.value || undefined, page: payPage.value, page_size: payPageSize },
     })
 
@@ -589,7 +589,7 @@ async function loadPays(reset = false) {
 }
 
 async function loadCurrencies() {
-  try { currencyOptions.value = await $api('/admin/users/meta/currencies') }
+  try { currencyOptions.value = await $api('/adm/users/meta/currencies') }
   catch {}
 }
 
@@ -605,7 +605,7 @@ async function saveUser() {
   try {
     const payload: any = { name: form.name.trim(), phone: form.phone.trim(), role: form.role }
     if (form.password) payload.password = form.password.trim()
-    await $api(`/admin/users/${id.value}`, { method: 'PUT', body: payload })
+    await $api(`/adm/users/${id.value}`, { method: 'PUT', body: payload })
     successMsg.value = 'User updated successfully'
     await loadUser()
   } catch {
@@ -628,7 +628,7 @@ async function saveBalance() {
   if (!editingAcc.value) return
   savingAcc.value = true
   try {
-    await $api(`/admin/accounts/${editingAcc.value.id}`, {
+    await $api(`/adm/accounts/${editingAcc.value.id}`, {
       method: 'PATCH',
       body: { balance: Number(editBalanceValue.value ?? 0) },
     })
@@ -647,7 +647,7 @@ async function addAccount() {
   }
   addingAcc.value = true
   try {
-    await $api(`/admin/users/${id.value}/accounts`, {
+    await $api(`/adm/users/${id.value}/accounts`, {
       method: 'POST',
       body: newAccount,
     })
@@ -691,7 +691,7 @@ async function copyField(text?: string | null, label = 'Value') {
 function openTransaction(txId?: number | null) {
   if (!txId) return
   // open admin transaction page or show toast if not available
-  const url = `/admin/transactions/${txId}`
+  const url = `/adm/transactions/${txId}`
   // try to navigate with Nuxt
   try {
     navigateTo(url)

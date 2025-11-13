@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from db.session import SessionLocal
 from models.payment import Payment
 
-router = APIRouter(prefix="/admin/payments", tags=["Admin: Payment Management"])
+router = APIRouter(prefix="/adm/payments", tags=["Admin: Payment Management"])
 
 def get_db():
     db = SessionLocal()

@@ -31,11 +31,11 @@
 
           <!-- ADMIN NAV -->
           <nav class="space-y-3 flex-1">
-            <SidebarItem label="Home" icon="Home" to="/admin" :collapsed="!isDesktop" />
-            <SidebarItem label="User Management" icon="User" to="/admin/users" :collapsed="!isDesktop" />
-            <SidebarItem label="Payments" icon="CreditCard" to="/admin/payments" :collapsed="!isDesktop" />
-            <SidebarItem label="Transactions" icon="List" to="/admin/transactions" :collapsed="!isDesktop" />
-            <SidebarItem label="Service Management" icon="List" to="/admin/services" :collapsed="!isDesktop" />
+            <SidebarItem label="Home" icon="Home" to="/adm" :collapsed="!isDesktop" />
+            <SidebarItem label="User Management" icon="User" to="/adm/users" :collapsed="!isDesktop" />
+            <SidebarItem label="Payments" icon="CreditCard" to="/adm/payments" :collapsed="!isDesktop" />
+            <SidebarItem label="Transactions" icon="List" to="/adm/transactions" :collapsed="!isDesktop" />
+            <SidebarItem label="Service Management" icon="List" to="/adm/services" :collapsed="!isDesktop" />
           </nav>
         </div>
 
@@ -68,21 +68,21 @@
       <section class="grid md:grid-cols-3 gap-6">
         <div class="bg-white rounded-xl shadow p-6">
           <p class="text-sm text-gray-500">Manage</p>
-          <NuxtLink to="/admin/users" class="block mt-2 font-semibold text-gray-800 hover:underline">
+          <NuxtLink to="/admn/users" class="block mt-2 font-semibold text-gray-800 hover:underline">
             User Management →
           </NuxtLink>
         </div>
 
         <div class="bg-white rounded-xl shadow p-6">
           <p class="text-sm text-gray-500">Monitor</p>
-          <NuxtLink to="/admin/transactions" class="block mt-2 font-semibold text-gray-800 hover:underline">
+          <NuxtLink to="/adm/transactions" class="block mt-2 font-semibold text-gray-800 hover:underline">
             Transactions →
           </NuxtLink>
         </div>
 
         <div class="bg-white rounded-xl shadow p-6">
           <p class="text-sm text-gray-500">System</p>
-          <NuxtLink to="/admin/services" class="block mt-2 font-semibold text-gray-800 hover:underline">
+          <NuxtLink to="/adm/services" class="block mt-2 font-semibold text-gray-800 hover:underline">
             Service Management →
           </NuxtLink>
         </div>

@@ -1,3 +1,5 @@
+# backend/api/routes/accounts.py
+from core.utils.currency import convert_amount
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from decimal import Decimal
@@ -18,12 +20,35 @@ def me(user_id: int = Depends(get_user_id), db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
 
     accounts = db.query(Account).filter_by(user_id=user_id).all()
-    total = sum(a.balance for a in accounts)  
+
+    out_accounts = []
+    total_display = Decimal("0.00")
+
+    for a in accounts:
+        try:
+            stored_amount = Decimal(a.balance or 0).quantize(Decimal("0.01"))
+        except Exception:
+            stored_amount = Decimal("0.00")
+
+        stored_currency = (getattr(a, "currency", "USD") or "USD").upper()
+
+        out_accounts.append({
+            "id": a.id,
+            "name": getattr(a, "name", None),
+            "number": getattr(a, "number", getattr(a, "account_number", None)),
+        
+            "balance": float(stored_amount),
+            "currency": stored_currency,
+            "stored_balance": float(stored_amount),
+            "stored_currency": stored_currency,
+            "status": getattr(a, "status", "active"),
+        })
+        total_display += stored_amount
 
     return {
         "user": {"id": user.id, "phone": user.phone},
-        "total_balance": float(total), 
-        "accounts": [AccountOut.model_validate(a).model_dump() for a in accounts],
+        "total_balance": float(total_display.quantize(Decimal("0.01"))),
+        "accounts": out_accounts,
     }
 
 

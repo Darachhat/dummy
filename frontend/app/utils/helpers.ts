@@ -1,10 +1,15 @@
+// frontend/app/utils/helpers.ts
 export const USD_TO_KHR_RATE = 4000
 
-export const formatCurrency = (n?: number | null, currency = ''): string => {
-  if (n === null || n === undefined) return '—'
-  return `${currency ? currency + ' ' : ''}${n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-  })}`
+export function formatCurrency(amount: number | null | undefined, currency = 'USD') {
+  const a = Number(amount ?? 0)
+  currency = (currency || 'USD').toUpperCase()
+  if (currency === 'KHR') {
+    // KHR often displayed without currency symbol; show number with 2 decimals
+    return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(a)
+  }
+  // USD and fallback
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(a)
 }
 
 export const convertToUSD = (khr?: number | null): number => {
@@ -51,4 +56,16 @@ export function getGreeting() {
   if (hour < 12) return 'Good morning'
   if (hour < 18) return 'Good afternoon'
   return 'Good evening'
+}
+export function convertAmount(amount: number | null | undefined, fromCurrency = 'USD', toCurrency = 'USD', usdToKhrRate = USD_TO_KHR_RATE) {
+  const a = Number(amount ?? 0)
+  const from = (fromCurrency || 'USD').toUpperCase()
+  const to = (toCurrency || 'USD').toUpperCase()
+  const rate = Number(usdToKhrRate || USD_TO_KHR_RATE)
+
+  if (from === to) return a
+  if (from === 'USD' && to === 'KHR') return a * rate
+  if (from === 'KHR' && to === 'USD') return a / rate
+  // fallback: no conversion
+  return a
 }

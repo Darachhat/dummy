@@ -24,7 +24,7 @@ const payment = ref(null)
 
 onMounted(async () => {
   try {
-    payment.value = await $fetch(`/admin/payments/${route.params.id}`)
+    payment.value = await $fetch(`/adm/payments/${route.params.id}`)
   } catch (error) {
     console.error('Failed to load payment:', error)
   }

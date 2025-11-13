@@ -4,7 +4,7 @@ from db.session import SessionLocal
 from models.service import Service
 from schemas.service import ServiceSchema
 
-router = APIRouter(prefix="/admin/services", tags=["Admin: Service Management"])
+router = APIRouter(prefix="/adm/services", tags=["Admin: Service Management"])
 
 def get_db():
     db = SessionLocal()

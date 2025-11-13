@@ -37,35 +37,35 @@ import { ref, onMounted } from 'vue'
 const services = ref([])
 
 onMounted(async () => {
-  services.value = await $fetch('/admin/services')
+  services.value = await $fetch('/adm/services')
 })
 
 const addService = async () => {
   const name = prompt('Service name:')
   const code = prompt('Service code:')
   if (name && code) {
-    await $fetch('/admin/services', {
+    await $fetch('/adm/services', {
       method: 'POST',
       body: { name, code, logo_url: '/static/logos/default.png' }
     })
-    services.value = await $fetch('/admin/services')
+    services.value = await $fetch('/adm/services')
   }
 }
 
 const editService = async (id: number) => {
   const name = prompt('New name:')
   if (name) {
-    await $fetch(`/admin/services/${id}`, {
+    await $fetch(`/adm/services/${id}`, {
       method: 'PUT',
       body: { name }
     })
-    services.value = await $fetch('/admin/services')
+    services.value = await $fetch('/adm/services')
   }
 }
 
 const deleteService = async (id: number) => {
   if (confirm('Delete this service?')) {
-    await $fetch(`/admin/services/${id}`, { method: 'DELETE' })
+    await $fetch(`/adm/services/${id}`, { method: 'DELETE' })
     services.value = services.value.filter(s => s.id !== id)
   }
 }

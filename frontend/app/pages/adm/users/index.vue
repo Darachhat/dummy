@@ -85,7 +85,7 @@ import SidebarItem from '~/components/SidebarItem.vue'
 
 const { $api } = useNuxtApp()
 const { logout } = useAuth()
-const toast = useToast()
+const toast = useMyToast()
 
 // set mobile top-bar title (layout reads this)
 const adminTitle = useAdminTitle()
@@ -116,7 +116,7 @@ const columns = [
 
 function getActions(user: any) {
   return [
-    [{ label: 'Edit', icon: 'i-lucide-edit', onSelect: () => navigateTo(`/admin/users/${user.id}?edit=1`) }],
+    [{ label: 'Edit', icon: 'i-lucide-edit', onSelect: () => navigateTo(`/adm/users/${user.id}?edit=1`) }],
     [{ label: 'Delete', icon: 'i-lucide-trash', color: 'error', onSelect: () => onDelete(user) }]
   ]
 }
@@ -130,7 +130,7 @@ const newUser = reactive({ name: '', phone: '', password: '', role: 'user' })
 async function load() {
   pending.value = true
   try {
-    const res = await $api('/admin/users', {
+    const res = await $api('/adm/users', {
       query: { q: q.value || undefined, page: page.value, page_size: pageSize, sort: sort.value.column, dir: sort.value.direction }
     })
     users.value = res.items ?? []
@@ -149,7 +149,7 @@ async function createUser() {
   }
   creating.value = true
   try {
-    const res = await $api('/admin/users', { method: 'POST', body: { ...newUser, name: newUser.name.trim(), phone: newUser.phone.trim(), password: newUser.password.trim() } })
+    const res = await $api('/adm/users', { method: 'POST', body: { ...newUser, name: newUser.name.trim(), phone: newUser.phone.trim(), password: newUser.password.trim() } })
     toast.add({ title: res?.id ? 'User created successfully' : 'Failed to create user', color: res?.id ? 'green' : 'red' })
     Object.assign(newUser, { name: '', phone: '', password: '', role: 'user' })
     showCreate.value = false
@@ -163,7 +163,7 @@ async function createUser() {
 async function onDelete(u: any) {
   if (!confirm(`Delete ${u.name || u.phone}?`)) return
   deletingId.value = u.id
-  try { await $api(`/admin/users/${u.id}`, { method: 'DELETE' }); toast.add({ title: 'User deleted', color: 'green' }); await load() }
+  try { await $api(`/adm/users/${u.id}`, { method: 'DELETE' }); toast.add({ title: 'User deleted', color: 'green' }); await load() }
   catch { toast.add({ title: 'Delete failed', color: 'red' }) }
   finally { deletingId.value = null }
 }

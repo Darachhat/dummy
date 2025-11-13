@@ -5,7 +5,7 @@ from models.transaction import Transaction
 from api.deps import get_user_id
 from sqlalchemy.orm import joinedload
 
-router = APIRouter(prefix="/admin/transactions", tags=["Admin: Transaction Management"])
+router = APIRouter(prefix="/adm/transactions", tags=["Admin: Transaction Management"])
 
 def get_db():
     db = SessionLocal()

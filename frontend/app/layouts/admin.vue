@@ -10,7 +10,7 @@
     >
       <div>
         <div class="flex items-center justify-between mb-8">
-          <h1 class="text-2xl font-bold">Dummy Admin</h1>
+          <h1 class="text-2xl font-bold">ADM</h1>
           <UButton
             v-if="!isDesktop"
             color="neutral"
@@ -22,11 +22,11 @@
 
         <!-- Navigation (your SidebarItem) -->
         <nav class="space-y-2">
-          <SidebarItem label="Home" icon="Home" to="/admin" />
-          <SidebarItem label="User Management" icon="User" to="/admin/users" />
-          <SidebarItem label="Payments" icon="CreditCard" to="/admin/payments" />
-          <SidebarItem label="Transactions" icon="List" to="/admin/transactions" />
-          <SidebarItem label="Service Management" icon="Settings" to="/admin/services" />
+          <SidebarItem label="Home" icon="Home" to="/adm" />
+          <SidebarItem label="User Management" icon="User" to="/adm/users" />
+          <SidebarItem label="Payments" icon="CreditCard" to="/adm/payments" />
+          <SidebarItem label="Transactions" icon="List" to="/adm/transactions" />
+          <SidebarItem label="Service Management" icon="Settings" to="/adm/services" />
         </nav>
       </div>
 

@@ -1,19 +1,19 @@
+# backend/api/routes/payments.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from decimal import Decimal
-from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from api.deps import get_db, get_user_id
 from models import Payment, Transaction, Account, Service
 from schemas.payment import PaymentStartOut, PaymentConfirmOut
 from core.config import settings
 import uuid
 import logging
-import httpx 
+import httpx
 from fastapi.responses import JSONResponse
 from datetime import datetime, timedelta, timezone
 from core.utils.timezone import to_local_time
 from core.utils.txid import generate_transaction_id_from_id
-
+from core.utils.currency import convert_amount
 
 # Dynamic import for mock or real OSP client
 if settings.USE_MOCK_OSP is True:
@@ -33,6 +33,13 @@ else:
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 logger = logging.getLogger(__name__)
+
+
+def _to_decimal(v, default="0.00"):
+    try:
+        return Decimal(str(v))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal(default)
 
 
 # Lookup Invoice (Query Payment)
@@ -70,7 +77,13 @@ async def start_payment(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_user_id),
 ):
-    """Start payment process by verifying and reserving funds"""
+    """Start payment process by verifying invoice and reserving funds on the selected account.
+
+    Behavior (currency-aware):
+      - If invoice currency == account.currency -> debit invoice amount (no conversion)
+      - Else -> convert invoice amount -> account.currency and debit converted amount
+      - Fee (settings.FEE_AMOUNT) is assumed USD and converted into account.currency before summing
+    """
     account = db.query(Account).filter_by(id=account_id, user_id=user_id).first()
     service = db.query(Service).filter_by(id=service_id).first()
 
@@ -82,36 +95,49 @@ async def start_payment(
     if not osp_data or osp_data.get("response_code") != 200:
         raise HTTPException(status_code=400, detail="Invalid invoice from OSP")
 
-    # Convert and calculate totals
-    invoice_amount_khr = Decimal(str(osp_data.get("amount", "0"))) 
-    invoice_currency = osp_data.get("currency", "KHR")
+    # Invoice details from OSP
+    invoice_amount = _to_decimal(osp_data.get("amount", "0"))
+    invoice_currency = (osp_data.get("currency") or "KHR").upper()
 
-    # --- Currency handling ---
-    USD_TO_KHR_RATE = Decimal("4000")
-    if invoice_currency == "KHR":
-        amount_usd = (invoice_amount_khr / USD_TO_KHR_RATE)
-    else:
-        amount_usd = invoice_amount_khr
+    # Account currency (what will be debited)
+    account_currency = (getattr(account, "currency", "USD") or "USD").upper()
 
-    fee_usd = Decimal(settings.FEE_AMOUNT or "0.00")
-    total_usd = amount_usd + fee_usd
+    # Fee is configured in settings (assume USD). Convert fee into account currency.
+    fee_usd = _to_decimal(settings.FEE_AMOUNT or "0.00")
+    fee_in_account_currency = convert_amount(fee_usd, "USD", account_currency)
 
-    if account.balance < total_usd:
+    # Convert invoice -> account currency (no-op if same currency)
+    invoice_converted_to_account = convert_amount(invoice_amount, invoice_currency, account_currency)
+
+    # Total to reserve / debit from the account (in account currency)
+    total_debit = (invoice_converted_to_account + fee_in_account_currency).quantize(Decimal("0.01"))
+
+    # Check account balance (account.balance is stored as whatever currency was chosen when admin created the account)
+    try:
+        acct_balance = Decimal(account.balance or 0).quantize(Decimal("0.01"))
+    except Exception:
+        acct_balance = Decimal("0.00")
+
+    if acct_balance < total_debit:
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
     osp_session_id = osp_data.get("session_id") or str(uuid.uuid4())
 
-    # Store as USD in database
+    # Store payment record:
+    # - payment.amount kept as the original invoice amount (for front-end display we also return invoice_amount)
+    # - payment.currency: set to the account currency because payment.total_amount will be stored in account-currency
+    # - payment.total_amount: the actual amount that will be debited from the selected account (in account_currency)
+    # - payment.fee: stored in account currency
     payment = Payment(
         user_id=user_id,
         account_id=account.id,
         service_id=service.id,
         reference_number=reference_number,
         customer_name=osp_data.get("customer_name"),
-        amount=amount_usd,
-        fee=fee_usd,
-        total_amount=total_usd,
-        currency="USD",
+        amount=float(invoice_amount.quantize(Decimal("0.01"))),  # original invoice amount (invoice currency)
+        fee=float(fee_in_account_currency.quantize(Decimal("0.01"))),
+        total_amount=float(total_debit),  # amount that will be debited from account (in account_currency)
+        currency=account_currency,  # currency of what will be debited (account currency)
         session_id=osp_session_id,
         status="started",
         created_at=datetime.utcnow(),
@@ -120,25 +146,24 @@ async def start_payment(
     db.commit()
     db.refresh(payment)
 
-    # Return both KHR + USD for frontend display
+    # Return both invoice (original) and debit (account) information so frontend can present both
     return {
         "payment_id": payment.id,
         "reference_number": payment.reference_number,
         "customer_name": payment.customer_name,
-        "amount": str(amount_usd),
-        "fee": str(fee_usd),
-        "total_amount": str(total_usd),
-        "currency": "USD",
-        "invoice_amount": str(invoice_amount_khr),
+        "invoice_amount": str(invoice_amount.quantize(Decimal("0.01"))),
         "invoice_currency": invoice_currency,
-        "usd_to_khr_rate": str(USD_TO_KHR_RATE),
+        "amount": str(invoice_converted_to_account),  # amount converted to account currency (what will be debited before fee)
+        "fee": str(fee_in_account_currency.quantize(Decimal("0.01"))),
+        "total_amount": str(total_debit),
+        "currency": account_currency,  # currency of total_amount
+        "usd_to_khr_rate": str(settings.USD_TO_KHR_RATE),
         "service": {
             "id": service.id,
             "name": service.name,
             "logo_url": service.logo_url,
         },
     }
-
 
 
 # Confirm Payment (Commit + Confirm)
@@ -149,7 +174,11 @@ async def confirm_payment(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_user_id),
 ):
-    """Finalize payment by calling OSP commit and confirm endpoints."""
+    """Finalize payment by calling OSP commit and confirm endpoints.
+
+    Note: This endpoint expects that `payment.total_amount` is the amount (in `payment.currency`)
+    that should be deducted from the selected account (this is set in /start).
+    """
     payment = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -158,11 +187,25 @@ async def confirm_payment(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    if account.balance < payment.total_amount:
+    # Ensure account has still enough balance (in case something changed between /start and /confirm)
+    try:
+        acct_balance = Decimal(account.balance or 0).quantize(Decimal("0.01"))
+    except Exception:
+        acct_balance = Decimal("0.00")
+
+    payment_total = _to_decimal(payment.total_amount).quantize(Decimal("0.01"))
+    payment_currency = (payment.currency or "USD").upper()
+    account_currency = (getattr(account, "currency", "USD") or "USD").upper()
+
+    # Defensive check: payment_currency should match account_currency (because /start stored it that way)
+    if payment_currency != account_currency:
+        # If mismatch, convert payment_total into account currency for comparison
+        payment_total = convert_amount(payment_total, payment_currency, account_currency)
+
+    if acct_balance < payment_total:
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
     try:
-        import uuid
         transaction_id = f"TID{payment.id:06d}{uuid.uuid4().hex[:2]}"
         logger.info(f"[Payment Confirm] Start Ref={payment.reference_number}, Txn={transaction_id}")
 
@@ -175,7 +218,7 @@ async def confirm_payment(
         else:
             raise HTTPException(status_code=400, detail="Invalid invoice or expired session from OSP")
 
-        # --- Commit Payment ---
+        # --- Commit Payment to OSP ---
         commit_res = await osp_commit(payment.reference_number, payment.session_id, transaction_id)
         logger.info(f"[OSP Commit Response] {commit_res}")
 
@@ -192,7 +235,7 @@ async def confirm_payment(
             except Exception as e:
                 logger.warning(f"[CDC Time Parse Error] {cdc_dt_str}: {e}")
 
-        # --- Update DB ---
+        # --- Update DB (mark payment committed) ---
         payment.acknowledgement_id = commit_res.get("acknowledgement_id")
         payment.cdc_transaction_datetime = cdc_local
         payment.cdc_transaction_datetime_utc = cdc_utc
@@ -200,20 +243,25 @@ async def confirm_payment(
         db.commit()
         db.refresh(payment)
 
-        # --- Record Transaction ---
+        # --- Record Transaction (use the amount actually debited from account) ---
+        # payment.total_amount is stored as a float string in account currency; ensure Decimal
+        debited_amount = _to_decimal(payment.total_amount).quantize(Decimal("0.01"))
+
         tx = Transaction(
             user_id=user_id,
             account_id=account.id,
             payment_id=payment.id,
             reference_number=payment.reference_number,
-            amount=payment.total_amount,
-            currency=payment.currency,
+            amount=float(debited_amount),  # amount debited from account
+            currency=payment.currency,      # currency of the debited amount (account currency)
             direction="debit",
-            description=f"Payment to {payment.service.name}",
+            description=f"Payment to {payment.service.name if payment.service else ''}",
             created_at=datetime.utcnow(),
         )
         db.add(tx)
-        account.balance -= payment.total_amount
+
+        # Deduct from account balance
+        account.balance = (acct_balance - debited_amount).quantize(Decimal("0.01"))
         db.commit()
         db.refresh(tx)
 
@@ -225,7 +273,7 @@ async def confirm_payment(
         except Exception:
             db.rollback()
 
-        # --- Confirm Payment ---
+        # --- Confirm Payment with OSP ---
         ack_id = payment.acknowledgement_id
         confirm_res = await osp_confirm(payment.reference_number, tx.transaction_id, ack_id)
         logger.info(f"[OSP Confirm Response] {confirm_res}")
@@ -246,20 +294,23 @@ async def confirm_payment(
             "account_id": account.id,
             "reference_number": payment.reference_number,
             "customer_name": payment.customer_name,
-            "amount": payment.amount,
-            "fee": payment.fee,
-            "total_amount": payment.total_amount,
+            "amount": float(_to_decimal(payment.amount).quantize(Decimal("0.01"))),
+            "invoice_amount": float(_to_decimal(payment.amount).quantize(Decimal("0.01"))),
+            "amount_debited": float(debited_amount),
+            "fee": float(_to_decimal(payment.fee).quantize(Decimal("0.01"))),
+            "total_amount": float(debited_amount), 
             "currency": payment.currency,
             "new_balance": float(account.balance),
             "cdc_transaction_datetime": payment.cdc_transaction_datetime.strftime("%Y-%m-%d %H:%M:%S") if payment.cdc_transaction_datetime else None,
             "cdc_transaction_datetime_utc": payment.cdc_transaction_datetime_utc.strftime("%Y-%m-%d %H:%M:%S") if payment.cdc_transaction_datetime_utc else None,
             "cdc_transaction_datetime_local": local_cdc_time,
             "service": {
-                "id": payment.service.id,
-                "name": payment.service.name,
-                "logo_url": payment.service.logo_url,
+                "id": payment.service.id if payment.service else None,
+                "name": payment.service.name if payment.service else None,
+                "logo_url": payment.service.logo_url if payment.service else None,
             },
         }
+
 
     except Exception as e:
         db.rollback()

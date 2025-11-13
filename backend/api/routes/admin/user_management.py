@@ -26,7 +26,7 @@ from schemas.transaction import TransactionOut
 from schemas.payment import PaymentConfirmOut
 
 router = APIRouter(
-    prefix="/admin/users",
+    prefix="/adm/users",
     tags=["Admin: User Management"],
     dependencies=[Depends(require_admin)],
 )
@@ -271,25 +271,19 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 @router.get("/{user_id}/accounts", response_model=List[AccountOut])
 def get_user_accounts(user_id: int, db: Session = Depends(get_db)):
     accounts_db = db.query(Account).filter(Account.user_id == user_id).all()
-    any_khr = any((getattr(a, "currency", "USD") or "USD").upper() == "KHR" for a in accounts_db)
-    khr_per_usd = get_khr_per_usd() if any_khr else None
 
     out = []
     for a in accounts_db:
-        stored_usd = Decimal(a.balance or 0)
-        display_currency = (a.currency or "USD").upper()
-
-        if display_currency == "KHR" and khr_per_usd:
-            display_balance = (stored_usd * khr_per_usd).quantize(Decimal("0.01"))
-        else:
-            display_balance = stored_usd.quantize(Decimal("0.01"))
+        # return stored balance and currency directly
+        stored_amount = Decimal(a.balance or 0).quantize(Decimal("0.01"))
+        stored_currency = (a.currency or "USD").upper()
 
         out.append({
             "id": a.id,
             "name": getattr(a, "name", None),
             "number": getattr(a, "number", getattr(a, "account_number", None)),
-            "balance": float(display_balance),
-            "currency": display_currency,
+            "balance": float(stored_amount),
+            "currency": stored_currency,
             "status": getattr(a, "status", "active"),
         })
     return out
@@ -350,7 +344,6 @@ def create_user_account(
     if exists:
         raise HTTPException(status_code=400, detail="Account number already exists")
 
-    # validate currency
     incoming_currency = (data.currency or "USD").upper()
     if incoming_currency not in SUPPORTED_CURRENCIES:
         raise HTTPException(status_code=400, detail="Unsupported currency")
@@ -360,40 +353,25 @@ def create_user_account(
     except Exception:
         input_balance = Decimal("0")
 
-    if incoming_currency == "KHR":
-        khr_per_usd = get_khr_per_usd() or USD_TO_KHR_RATE
-        if not isinstance(khr_per_usd, Decimal) or khr_per_usd == 0:
-            raise HTTPException(status_code=500, detail="Exchange rate unavailable")
-        # convert KHR -> USD for storage
-        balance_usd = (input_balance / khr_per_usd).quantize(Decimal("0.01"))
-    else:
-        # USD input -> store as USD
-       balance_usd = input_balance.quantize(Decimal("0.01"))
-
-    # create account: store balance in USD, but keep currency as admin-chosen display currency
+    # NEW: store input_balance as-is (quantize to 2 decimals), and set currency exactly as admin selected
     acc = Account(
         user_id=user.id,
         name=data.name,
         number=data.number,
-        balance=balance_usd,
-        currency=incoming_currency,  # used for display conversion later
+        balance=input_balance.quantize(Decimal("0.01")),
+        currency=incoming_currency,
     )
     db.add(acc)
     db.commit()
     db.refresh(acc)
 
-    # Prepare response using display currency (convert stored USD -> KHR on response if needed)
-    if incoming_currency == "KHR":
-        display_balance = float((Decimal(acc.balance or 0) * get_khr_per_usd()).quantize(Decimal("0.01")))
-    else:
-        display_balance = float(Decimal(acc.balance or 0).quantize(Decimal("0.01")))
-
+    # Return the stored values so frontend/admin will display the same numbers
     return {
         "id": acc.id,
         "name": acc.name,
         "number": acc.number,
-        "balance": display_balance,
-        "currency": incoming_currency,
+        "balance": float(acc.balance),
+        "currency": acc.currency,
         "status": getattr(acc, "status", "active"),
     }
 

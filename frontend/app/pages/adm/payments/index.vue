@@ -29,12 +29,12 @@ import { ref, onMounted } from 'vue'
 const payments = ref([])
 
 onMounted(async () => {
-  payments.value = await $fetch('/admin/payments')
+  payments.value = await $fetch('/adm/payments')
 })
 
 const deletePayment = async (id: number) => {
   if (confirm('Are you sure?')) {
-    await $fetch(`/admin/payments/${id}`, { method: 'DELETE' })
+    await $fetch(`/adm/payments/${id}`, { method: 'DELETE' })
     payments.value = payments.value.filter(p => p.id !== id)
   }
 }

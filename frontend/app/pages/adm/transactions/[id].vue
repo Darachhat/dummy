@@ -5,7 +5,7 @@ const id = route.params.id
 const transaction = ref(null)
 
 onMounted(async () => {
-  transaction.value = await $fetch(`/admin/transactions/${id}`)
+  transaction.value = await $fetch(`/adm/transactions/${id}`)
 })
 </script>
 

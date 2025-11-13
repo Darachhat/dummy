@@ -29,12 +29,12 @@ import { ref, onMounted } from 'vue'
 const transactions = ref([])
 
 onMounted(async () => {
-  transactions.value = await $fetch('/admin/transactions')
+  transactions.value = await $fetch('/adm/transactions')
 })
 
 const deleteTransaction = async (id: number) => {
   if (confirm('Are you sure?')) {
-    await $fetch(`/admin/transactions/${id}`, { method: 'DELETE' })
+    await $fetch(`/adm/transactions/${id}`, { method: 'DELETE' })
     transactions.value = transactions.value.filter(t => t.id !== id)
   }
 }

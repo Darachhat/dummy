@@ -18,8 +18,8 @@
 </template>
 
 <script setup lang="ts">
-import { useToast } from '~/composables/useToast'
-const { toasts } = useToast()
+import { useMyToast } from '~/composables/useMyToast';
+const { toasts } = useMyToast();
 </script>
 
 <style scoped>

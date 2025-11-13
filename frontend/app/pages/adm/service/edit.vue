@@ -53,7 +53,7 @@ const service = ref<any>(null)
 
 onMounted(async () => {
   try {
-    service.value = await $fetch(`/admin/services/${route.query.id}`)
+    service.value = await $fetch(`/adm/services/${route.query.id}`)
   } catch (error) {
     console.error('Failed to load service:', error)
   }
@@ -62,12 +62,12 @@ onMounted(async () => {
 const updateService = async () => {
   if (!service.value) return
   try {
-    await $fetch(`/admin/services/${route.query.id}`, {
+    await $fetch(`/adm/services/${route.query.id}`, {
       method: 'PUT',
       body: service.value
     })
     alert('Service updated successfully!')
-    router.push('/admin/services')
+    router.push('/adm/services')
   } catch (error) {
     console.error('Failed to update service:', error)
   }

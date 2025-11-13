@@ -22,7 +22,7 @@ def get_khr_per_usd() -> Decimal:
     except Exception:
         return Decimal("4000")
 
-accounts_router = APIRouter(prefix="/admin/accounts", tags=["Admin: Accounts"], dependencies=[Depends(require_admin)])
+accounts_router = APIRouter(prefix="/adm/accounts", tags=["Admin: Accounts"], dependencies=[Depends(require_admin)])
 
 def get_db():
     db = SessionLocal()
@@ -62,7 +62,6 @@ def patch_account(
         acc.name = str(payload["name"]).strip()
     if "number" in payload and payload["number"] is not None:
         acc.number = str(payload["number"]).strip()
-
     if "balance" in payload:
         raw = payload.get("balance")
         try:
@@ -71,16 +70,8 @@ def patch_account(
             raise HTTPException(status_code=400, detail="Invalid balance value")
 
         input_currency = (payload.get("currency") or acc.currency or "USD").upper()
-        if input_currency == "KHR":
-            khr_per_usd = get_khr_per_usd()
-            if not khr_per_usd or khr_per_usd == 0:
-                raise HTTPException(status_code=500, detail="Exchange rate unavailable")
-            balance_usd = (raw_dec / khr_per_usd).quantize(Decimal("0.01"))
-            acc.balance = balance_usd
-            acc.currency = "KHR"
-        else:
-            acc.balance = raw_dec.quantize(Decimal("0.01"))
-            acc.currency = "USD"
+        acc.balance = raw_dec.quantize(Decimal("0.01"))
+        acc.currency = input_currency
 
     db.commit()
     db.refresh(acc)
@@ -94,18 +85,3 @@ def patch_account(
         "currency": (acc.currency or "USD").upper(),
         "message": "Account updated",
     }
-
-
-@accounts_router.delete("/{account_id}")
-def delete_account(account_id: int = Path(...), db: Session = Depends(get_db)):
-    acc = db.query(Account).filter(Account.id == account_id).first()
-    if not acc:
-        raise HTTPException(status_code=404, detail="Account not found")
-    tx_count = db.query(Transaction).filter(Transaction.account_id == account_id).count()
-    pay_count = db.query(Payment).filter(Payment.account_id == account_id).count()
-    if tx_count or pay_count:
-        raise HTTPException(status_code=400, detail=f"Cannot delete account with {tx_count} transactions and {pay_count} payments")
-
-    db.delete(acc)
-    db.commit()
-    return {"message": "Account deleted", "id": account_id}
