@@ -14,8 +14,6 @@ from datetime import datetime, timedelta, timezone
 from core.utils.timezone import to_local_time
 from core.utils.txid import generate_transaction_id_from_id
 from core.utils.currency import convert_amount
-
-# Dynamic import for mock or real OSP client
 if settings.USE_MOCK_OSP is True:
     from services.osp_client_mockup import (
         osp_lookup,
@@ -138,6 +136,7 @@ async def start_payment(
         fee=float(fee_in_account_currency.quantize(Decimal("0.01"))),
         total_amount=float(total_debit),  # amount that will be debited from account (in account_currency)
         currency=account_currency,  # currency of what will be debited (account currency)
+        invoice_currency=invoice_currency,  # currency of the original invoice
         session_id=osp_session_id,
         status="started",
         created_at=datetime.utcnow(),
@@ -253,7 +252,7 @@ async def confirm_payment(
             payment_id=payment.id,
             reference_number=payment.reference_number,
             amount=float(debited_amount),  # amount debited from account
-            currency=payment.currency,      # currency of the debited amount (account currency)
+            currency=(payment.invoice_currency or payment.currency),     # currency of the debited amount (account currency)
             direction="debit",
             description=f"Payment to {payment.service.name if payment.service else ''}",
             created_at=datetime.utcnow(),
@@ -300,6 +299,7 @@ async def confirm_payment(
             "fee": float(_to_decimal(payment.fee).quantize(Decimal("0.01"))),
             "total_amount": float(debited_amount), 
             "currency": payment.currency,
+            "invoice_currency": payment.invoice_currency,
             "new_balance": float(account.balance),
             "cdc_transaction_datetime": payment.cdc_transaction_datetime.strftime("%Y-%m-%d %H:%M:%S") if payment.cdc_transaction_datetime else None,
             "cdc_transaction_datetime_utc": payment.cdc_transaction_datetime_utc.strftime("%Y-%m-%d %H:%M:%S") if payment.cdc_transaction_datetime_utc else None,

@@ -88,6 +88,7 @@
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
 import { formatUserDate } from '~/utils/helpers'
+import { useCurrency } from '~/composables/useCurrency'
 
 const { $api } = useNuxtApp()
 const route = useRoute()
@@ -157,8 +158,8 @@ const getLogoUrl = (path: string) => {
   return path.startsWith('http') ? path : `${BACKEND_URL}${path}`
 }
 
-const formatCurrency = (amount: number | null) => {
-  if (amount == null) return '—'
-  return `$${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+const { format } = useCurrency()
+const formatCurrency = (val?: number | string | null, currency = 'USD') => {
+  return format(val, currency)
 }
 </script>

@@ -62,6 +62,8 @@
 
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
+import { useCurrency } from '~/composables/useCurrency'
+
 
 const { $api } = useNuxtApp()
 const accounts = ref<any[]>([])
@@ -80,11 +82,9 @@ onMounted(async () => {
 
 const goDetail = (id: number) => navigateTo(`/accounts/${id}`)
 
-const formatCurrency = (amount?: number | null, currency = 'USD') => {
-  if (amount == null) return '—'
-  return `${currency} ${Number(amount).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
+const { format } = useCurrency()
+
+const formatCurrency = (val?: number | string | null, currency = 'USD') => {
+  return format(val, currency)
 }
 </script>

@@ -1,3 +1,4 @@
+<!-- pages/adm/users/[id].vue -->
 <template>
   <div class="space-y-8">
     <!-- Header -->

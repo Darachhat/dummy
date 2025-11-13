@@ -188,6 +188,8 @@
 import SidebarItem from '~/components/SidebarItem.vue'
 import { LogOut, Menu, X, Plus } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
+import { useCurrency } from '~/composables/useCurrency'
+
 
 const { $api } = useNuxtApp()
 const { logout } = useAuth()
@@ -335,10 +337,10 @@ const getLogoUrl = (path: string) =>
     ? path
     : `${BACKEND_URL}${path}`
 
+const { format } = useCurrency()
+
 const formatCurrency = (val?: number | string | null, currency = 'USD') => {
-  if (val === null || val === undefined) return '—'
-  const num = typeof val === 'string' ? parseFloat(val) : val
-  return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+  return format(val, currency)
 }
 
 const formatDate = (isoString?: string) => {

@@ -5,12 +5,13 @@ export function formatCurrency(amount: number | null | undefined, currency = 'US
   const a = Number(amount ?? 0)
   currency = (currency || 'USD').toUpperCase()
   if (currency === 'KHR') {
-    // KHR often displayed without currency symbol; show number with 2 decimals
-    return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(a)
+    // return with Khmer symbol
+    return ' ៛' + new Intl.NumberFormat ('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(a)) 
   }
   // USD and fallback
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(a)
 }
+
 
 export const convertToUSD = (khr?: number | null): number => {
   if (!khr) return 0

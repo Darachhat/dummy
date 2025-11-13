@@ -54,14 +54,13 @@
           <span class="text-gray-500">Amount</span>
           <span class="font-medium text-gray-800">
              {{ formatCurrency(payment?.invoice_amount, payment?.invoice_currency || 'KHR') }}
-          <span class="ml-1 text-sm text-gray-800">{{ (payment?.invoice_currency || 'KHR').toUpperCase() }}</span>
           </span>
         </div>
 
         <div class="flex justify-between">
           <span class="text-gray-500">Fee</span>
           <span class="font-medium text-gray-800">
-            {{ formatCurrency(payment?.fee) }} USD
+            {{ formatCurrency(payment?.fee) }}
           </span>
         </div>
 
@@ -71,9 +70,9 @@
 
 
         <div class="flex justify-between text-base font-semibold">
-          <span>Total Paid</span>
-          <span class="text-gray-900">{{ formatCurrency(payment?.total_amount) }} USD</span>
-        </div>
+  <span>Total Paid</span>
+  <span class="text-gray-900">{{ formatCurrency(payment?.total_amount, payment?.currency || 'USD') }}</span>
+</div>
          <div class="w-full flex items-center justify-center my-3">
             <div class="dotted-divider w-full"></div>
           </div>

@@ -18,6 +18,7 @@ class Payment(Base):
     fee = Column(Numeric(12, 2), default=0)
     total_amount = Column(Numeric(12, 2), nullable=False)
     currency = Column(String, default="USD")
+    invoice_currency = Column(String, default="USD")
 
     session_id = Column(String, nullable=True)
     acknowledgement_id = Column(String, nullable=True)

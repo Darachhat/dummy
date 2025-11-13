@@ -59,15 +59,14 @@
         <div class="flex justify-between items-start">
           <span class="text-gray-500">Amount</span>
           <div class="text-right">
-            <p class="font-medium text-gray-800">
-              {{ formatCurrency(payment?.invoice_amount) }}
-              {{ payment?.invoice_currency }}
-            </p>
+           <p class="font-medium text-gray-800">
+  {{ formatCurrency(payment?.invoice_amount, payment?.invoice_currency) }}
+</p>
             <p
               v-if="payment?.invoice_currency === 'KHR'"
               class="text-xs text-gray-500"
             >
-              ≈ {{ formatCurrency(convertToUSD(payment?.invoice_amount)) }} USD
+              ≈ {{ formatCurrency(convertToUSD(payment?.invoice_amount)) }} 
             </p>
           </div>
         </div>
@@ -75,7 +74,7 @@
         <div class="flex justify-between">
           <span class="text-gray-500">Fee</span>
           <span class="font-medium text-gray-800"
-            >{{ formatCurrency(payment?.fee) }} USD</span
+            >{{ formatCurrency(payment?.fee) }}</span
           >
         </div>
         <div class="dotted-divider"></div>
@@ -83,7 +82,7 @@
         <div class="flex justify-between text-base font-semibold">
           <span>Total Amount</span>
           <div class="text-right">
-            <p>{{ formatCurrency(payment?.total_amount) }} USD</p>
+            <p>{{ formatCurrency(payment?.total_amount) }}</p>
             <p
               v-if="payment?.invoice_currency === 'KHR'"
               class="text-xs text-gray-500"
@@ -94,7 +93,6 @@
                   payment?.invoice_amount + payment?.fee * USD_TO_KHR_RATE
                 )
               }}
-              KHR
             </p>
           </div>
         </div>
