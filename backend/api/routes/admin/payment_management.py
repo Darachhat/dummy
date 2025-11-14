@@ -1,5 +1,4 @@
 # backend/api/routes/admin/payment_management.py
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import Dict, Any
@@ -8,15 +7,18 @@ from decimal import Decimal
 from api.deps import get_db
 from core.permissions import require_admin
 from models.payment import Payment
+from schemas.admin_payment import (
+    PaymentAdminOut,
+    PaginatedAdminPayments,
+    PaymentStatusUpdateIn,
+    PaymentStatusUpdateOut,
+    PaymentDeleteOut,
+)
 
 router = APIRouter(prefix="/adm/payments", tags=["Admin - Payments"])
 
 
 def serialize_payment(p: Payment) -> Dict[str, Any]:
-    """
-    Serialize Payment ORM object into stable, snake_case JSON keys
-    suitable for the frontend. Converts Decimal -> float and datetimes -> ISO strings.
-    """
     def g(attr, default=None):
         val = getattr(p, attr, default)
         # convert Decimal to float for JSON
@@ -73,55 +75,94 @@ def serialize_payment(p: Payment) -> Dict[str, Any]:
     }
 
 
-@router.get("/", dependencies=[Depends(require_admin)])
+@router.get(
+    "/",
+    dependencies=[Depends(require_admin)],
+    response_model=PaginatedAdminPayments,
+)
 def list_payments(
     db: Session = Depends(get_db),
     limit: int = Query(50, ge=1, le=200),
-    offset: int = 0
+    offset: int = 0,
 ):
     q = db.query(Payment).options(joinedload(Payment.service))
 
     total = q.count()
-    payments = q.order_by(Payment.created_at.asc()).offset(offset).limit(limit).all()
+    payments = (
+        q.order_by(Payment.created_at.asc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
-    results = [serialize_payment(p) for p in payments]
+    items = [PaymentAdminOut(**serialize_payment(p)) for p in payments]
 
-    return {
-        "items": results,
-        "total": total,
-        "limit": limit,
-        "offset": offset
-    }
+    return PaginatedAdminPayments(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
-@router.get("/{payment_id}", dependencies=[Depends(require_admin)])
+@router.get(
+    "/{payment_id}",
+    dependencies=[Depends(require_admin)],
+    response_model=PaymentAdminOut,
+)
 def get_payment(payment_id: int, db: Session = Depends(get_db)):
-    payment = db.query(Payment).options(joinedload(Payment.service)).filter(Payment.id == payment_id).first()
+    payment = (
+        db.query(Payment)
+        .options(joinedload(Payment.service))
+        .filter(Payment.id == payment_id)
+        .first()
+    )
     if not payment:
         raise HTTPException(404, "Payment not found")
 
-    return serialize_payment(payment)
+    return PaymentAdminOut(**serialize_payment(payment))
 
 
-@router.put("/{payment_id}/status", dependencies=[Depends(require_admin)])
-def update_status(payment_id: int, status: str = Body(...), db: Session = Depends(get_db)):
+@router.put(
+    "/{payment_id}/status",
+    dependencies=[Depends(require_admin)],
+    response_model=PaymentStatusUpdateOut,
+)
+def update_status(
+    payment_id: int,
+    body: PaymentStatusUpdateIn = Body(...),
+    db: Session = Depends(get_db),
+):
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
         raise HTTPException(404, "Payment not found")
 
     valid_status = {"pending", "success", "failed", "canceled", "started", "confirmed"}
-    if status not in valid_status:
+    if body.status not in valid_status:
         raise HTTPException(400, "Invalid status")
 
-    payment.status = status
+    payment.status = body.status
     db.commit()
     db.refresh(payment)
 
-    payment = db.query(Payment).options(joinedload(Payment.service)).filter(Payment.id == payment_id).first()
-    return {"message": "Updated", "payment": serialize_payment(payment)}
+    payment = (
+        db.query(Payment)
+        .options(joinedload(Payment.service))
+        .filter(Payment.id == payment_id)
+        .first()
+    )
+
+    return PaymentStatusUpdateOut(
+        message="Updated",
+        payment=PaymentAdminOut(**serialize_payment(payment)),
+    )
 
 
-@router.delete("/{payment_id}", dependencies=[Depends(require_admin)])
+@router.delete(
+    "/{payment_id}",
+    dependencies=[Depends(require_admin)],
+    response_model=PaymentDeleteOut,
+)
 def delete_payment(payment_id: int, db: Session = Depends(get_db)):
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
@@ -130,4 +171,4 @@ def delete_payment(payment_id: int, db: Session = Depends(get_db)):
     db.delete(payment)
     db.commit()
 
-    return {"message": "Payment deleted"}
+    return PaymentDeleteOut(message="Payment deleted")

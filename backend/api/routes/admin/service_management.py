@@ -17,7 +17,15 @@ from sqlalchemy.orm import Session
 from api.deps import get_db
 from core.permissions import require_admin
 from models.service import Service
-from schemas.service import ServiceSchema
+from schemas.service import (
+    ServiceSchema,
+    ServiceOut,
+    ServiceListResponse,
+    ServiceCreateResponse,
+    ServiceUpdateResponse,
+    ServiceDeleteResponse,
+    UploadLogoOut,
+)
 
 router = APIRouter(
     prefix="/adm/services",
@@ -43,7 +51,7 @@ def _ensure_unique_code(db: Session, code: str, exclude_id: Optional[int] = None
 
 # ---------- Routes ----------
 
-@router.get("/")
+@router.get("/", response_model=ServiceListResponse)
 def list_services(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -85,24 +93,24 @@ def list_services(
         .all()
     )
 
-    return {
-        "items": services,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-    }
+    return ServiceListResponse(
+        items=services,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
-@router.get("/{service_id}")
+@router.get("/{service_id}", response_model=ServiceOut)
 def get_service(service_id: int, db: Session = Depends(get_db)):
     """Get a single service for the edit page."""
-    service = db.query(Service).get(service_id)
+    service = db.get(Service, service_id)
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
     return service
 
 
-@router.post("/upload-logo")
+@router.post("/upload-logo", response_model=UploadLogoOut)
 async def upload_logo(file: UploadFile = File(...)):
     allowed_ext = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
     filename = file.filename or ""
@@ -119,23 +127,26 @@ async def upload_logo(file: UploadFile = File(...)):
     dest.write_bytes(data)
 
     logo_url = f"/static/logos/{fname}"
-    return {"logo_url": logo_url}
+    return UploadLogoOut(logo_url=logo_url)
 
 
-@router.post("/")
+@router.post("/", response_model=ServiceCreateResponse)
 def add_service(data: ServiceSchema, db: Session = Depends(get_db)):
     """Create a new service (admin only)."""
     _ensure_unique_code(db, data.code)
 
-    service = Service(**data.model_dump(exclude={"id"})) 
+    service = Service(**data.model_dump(exclude={"id"}))
     db.add(service)
     db.commit()
     db.refresh(service)
 
-    return {"message": "Service added successfully", "service": service}
+    return ServiceCreateResponse(
+        message="Service added successfully",
+        service=service,
+    )
 
 
-@router.put("/{service_id}")
+@router.put("/{service_id}", response_model=ServiceUpdateResponse)
 def update_service(
     service_id: int,
     payload: dict = Body(...),
@@ -143,7 +154,7 @@ def update_service(
 ):
     """Update an existing service (admin only)."""
 
-    service = db.query(Service).get(service_id)
+    service = db.get(Service, service_id)
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
 
@@ -171,17 +182,19 @@ def update_service(
     db.commit()
     db.refresh(service)
 
-    return {"message": "Service updated successfully", "service": service}
+    return ServiceUpdateResponse(
+        message="Service updated successfully",
+        service=service,
+    )
 
 
-
-@router.delete("/{service_id}")
+@router.delete("/{service_id}", response_model=ServiceDeleteResponse)
 def delete_service(service_id: int, db: Session = Depends(get_db)):
     """Delete a service (admin only)."""
-    service = db.query(Service).get(service_id)
+    service = db.get(Service, service_id)
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
 
     db.delete(service)
     db.commit()
-    return {"message": "Service deleted successfully"}
+    return ServiceDeleteResponse(message="Service deleted successfully")

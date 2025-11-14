@@ -1,6 +1,7 @@
+# backend/api/routes/admin/transaction_management.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from api.deps import get_db
 from core.permissions import require_admin
@@ -8,6 +9,11 @@ from models.transaction import Transaction
 from models.payment import Payment
 from models.account import Account
 from models.user import User
+from schemas.admin_transaction import (
+    AdminTransactionOut,
+    PaginatedAdminTransactions,
+    AdminTransactionDeleteOut,
+)
 
 router = APIRouter(
     prefix="/adm/transactions",
@@ -17,13 +23,6 @@ router = APIRouter(
 
 
 def serialize_tx(tx: Transaction) -> Dict[str, Any]:
-    """
-    Serialize a Transaction for the admin UI.
-
-    Priorities:
-     - If a linked payment exists, prefer many display fields from payment (amount, fee, total, reference, status, invoice_currency, customer_name, service_name)
-     - Account and user info come from tx.account and tx.account.user
-    """
     def g(attr, default=None):
         return getattr(tx, attr, default)
 
@@ -92,7 +91,11 @@ def serialize_tx(tx: Transaction) -> Dict[str, Any]:
     return base
 
 
-@router.get("/", summary="List transactions (admin)")
+@router.get(
+    "/",
+    summary="List transactions (admin)",
+    response_model=PaginatedAdminTransactions,
+)
 def list_transactions(
     db: Session = Depends(get_db),
     limit: int = Query(50, ge=1, le=500),
@@ -114,11 +117,21 @@ def list_transactions(
 
     total = q.count()
     txs = q.order_by(Transaction.created_at.asc()).offset(offset).limit(limit).all()
-    items = [serialize_tx(t) for t in txs]
-    return {"items": items, "total": total, "limit": limit, "offset": offset}
+    items = [AdminTransactionOut(**serialize_tx(t)) for t in txs]
+
+    return PaginatedAdminTransactions(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
-@router.get("/{tx_id}", summary="Get transaction by DB id")
+@router.get(
+    "/{tx_id}",
+    summary="Get transaction by DB id",
+    response_model=AdminTransactionOut,
+)
 def get_transaction(tx_id: int, db: Session = Depends(get_db)):
     tx = (
         db.query(Transaction)
@@ -131,20 +144,28 @@ def get_transaction(tx_id: int, db: Session = Depends(get_db)):
     )
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    return serialize_tx(tx)
+    return AdminTransactionOut(**serialize_tx(tx))
 
 
-@router.delete("/{tx_id}", summary="Delete transaction")
+@router.delete(
+    "/{tx_id}",
+    summary="Delete transaction",
+    response_model=AdminTransactionDeleteOut,
+)
 def delete_transaction(tx_id: int, db: Session = Depends(get_db)):
     tx = db.query(Transaction).filter(Transaction.id == tx_id).first()
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
     db.delete(tx)
     db.commit()
-    return {"message": f"Transaction {tx_id} deleted"}
+    return AdminTransactionDeleteOut(message=f"Transaction {tx_id} deleted")
 
 
-@router.get("/by-tid/{tid}", summary="Get transaction by transaction_id (admin)")
+@router.get(
+    "/by-tid/{tid}",
+    summary="Get transaction by transaction_id (admin)",
+    response_model=AdminTransactionOut,
+)
 def get_transaction_by_tid(tid: str, db: Session = Depends(get_db)):
     tx = (
         db.query(Transaction)
@@ -157,4 +178,4 @@ def get_transaction_by_tid(tid: str, db: Session = Depends(get_db)):
     )
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    return serialize_tx(tx)
+    return AdminTransactionOut(**serialize_tx(tx))
