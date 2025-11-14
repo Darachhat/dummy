@@ -1,5 +1,6 @@
 # backend/migrations/env.py
 from logging.config import fileConfig
+from core.config import settings 
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -49,7 +50,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = config.get_main_option("sqlalchemy.url", settings.DATABASE_URL)
     context.configure(
         url=url,
         target_metadata=target_metadata,

@@ -29,10 +29,16 @@ from models.payment import Payment
 
 app = FastAPI(title="Dummy Bank Backend")
 
+def _parse_cors(origins_str: str):
+    # support: "http://a,http://b" or "*"
+    if origins_str.strip() == "*":
+        return ["*"]
+    return [o.strip() for o in origins_str.split(",") if o.strip()]
+
 # --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_parse_cors(settings.CORS_ORIGINS),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,6 +55,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.on_event("startup")
 def seed_data():
     """Seed a default user, accounts, and services (idempotent)."""
+
+    # # Only seed in debug/dev environments
+    # if not settings.DEBUG:
+    #     return
+    
     logging.warning(f"USE_MOCK_OSP = {settings.USE_MOCK_OSP}")
     db = SessionLocal()
     try:

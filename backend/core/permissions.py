@@ -1,35 +1,25 @@
+# backend/core/permissions.py
 from fastapi import Depends, HTTPException, status
-from jose import jwt, JWTError
 from fastapi.security import OAuth2PasswordBearer
-from fastapi_permissions import Allow, Authenticated, configure_permissions
+from fastapi_permissions import Authenticated, configure_permissions
 from db.session import SessionLocal
 from models.user import User
-from core.config import settings
+from core.security import decode_token
+from api.deps import get_db
 
 # Token scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-# --- Database session dependency ---
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 # --- Authentication: get current user ---
 def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)):
-    """Decode JWT and fetch the current user."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired token",
     )
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
+        user_id = decode_token(token)
+    except HTTPException:
+
         raise credentials_exception
 
     user = db.query(User).filter(User.id == int(user_id)).first()
