@@ -1,9 +1,11 @@
+<!-- frontend/app/pages/adm/services/index.vue -->
 <script setup lang="ts">
 definePageMeta({ layout: 'admin' })
 
 import { ref, onMounted, computed, h } from 'vue'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { useMyToast } from '~/composables/useMyToast'
+import AdminTablePage from '~/components/AdminTablePage.vue'
 
 const { $api } = useNuxtApp()
 const toast = useMyToast()
@@ -136,14 +138,13 @@ async function createService() {
   }
 }
 
-
 /* -----------------------------
-    TABLE COLUMNS (like payments)
+    TABLE COLUMNS
 ------------------------------*/
 
 type RowT = Record<string, any>
 
-const columns = ref<ColumnDef<RowT, any>[]>([
+const columns: ColumnDef<RowT, any>[] = [
   {
     accessorKey: 'id',
     header: 'ID',
@@ -194,7 +195,7 @@ const columns = ref<ColumnDef<RowT, any>[]>([
       return val.length > 80 ? val.slice(0, 77) + '...' : val
     },
   },
-])
+]
 
 /* Row click → go to edit page */
 function onRowSelect(e: Event, row: any) {
@@ -206,131 +207,108 @@ function onRowSelect(e: Event, row: any) {
 </script>
 
 <template>
-  <div class="p-6">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-3">
-      <h2 class="text-2xl hidden md:block font-bold">Service Management</h2>
-      <div class="flex flex-wrap items-center gap-3">
+  <AdminTablePage
+    title="Service Management"
+    :data="services"
+    :columns="columns"
+    :loading="pending"
+    :page="page"
+    :total-pages="totalPages"
+    :on-row-select="onRowSelect"
+    :disable-pagination="pending"
+    @change-page="go"
+  >
+    <!-- top-right actions -->
+    <template #actions>
+      <UButton
+        variant="solid"
+        class="btn-dark"
+        label="+ Create Service"
+        @click="showCreate = true"
+      />
+    </template>
+
+    <template #loading>
+      <div class="p-6 text-center text-gray-500">
+        Loading services…
+      </div>
+    </template>
+
+    <template #empty>
+      <div class="p-6 text-center text-gray-500">
+        No services found.
+      </div>
+    </template>
+
+    <template #summary>
+      Page {{ page }} / {{ totalPages }}
+    </template>
+  </AdminTablePage>
+
+  <!-- Create Service Modal -->
+  <UModal v-model:open="showCreate" title="Create Service">
+    <template #body>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-2">
+        <UFormField label="Service Name">
+          <UInput
+            v-model="newService.name"
+            color="neutral"
+            placeholder="CDC Public Service"
+            size="lg"
+          />
+        </UFormField>
+
+        <UFormField label="Code">
+          <UInput
+            v-model="newService.code"
+            color="neutral"
+            placeholder="cdc"
+            size="lg"
+          />
+        </UFormField>
+
+        <UFormField label="Description" class="sm:col-span-2">
+          <UInput
+            v-model="newService.description"
+            color="neutral"
+            placeholder="Optional description"
+            size="lg"
+          />
+        </UFormField>
+
+        <UFormField label="Logo (image file)" class="sm:col-span-2">
+          <UInput
+            type="file"
+            accept="image/*"
+            color="neutral"
+            size="lg"
+            @change="onLogoChange"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            PNG / JPG / WEBP – small square image works best.
+          </p>
+        </UFormField>
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="flex justify-end gap-3 py-2 px-3">
         <UButton
-          variant="solid"
+          label="Cancel"
+          color="neutral"
+          variant="outline"
+          @click="() => { showCreate = false; resetNewService() }"
+        />
+        <UButton
+          label="Create"
           class="btn-dark"
-          label="+ Create Service"
-          @click="showCreate = true"
+          :loading="creating"
+          :disabled="!newService.name || !newService.code"
+          @click="createService"
         />
       </div>
-    </div>
-
-    <!-- SERVICES TABLE -->
-    <UCard class="shadow-sm border rounded-xl overflow-hidden">
-      <UTable
-        :data="services"
-        :columns="columns"
-        :loading="pending"
-        :onSelect="onRowSelect"
-        class="min-w-full"
-      >
-        <template #loading>
-          <div class="p-6 text-center text-gray-500">
-            Loading services…
-          </div>
-        </template>
-
-        <template #empty>
-          <div class="p-6 text-center text-gray-500">
-            No services found.
-          </div>
-        </template>
-      </UTable>
-
-      <template #footer>
-        <div
-          class="flex items-center justify-between p-3 text-sm text-gray-600"
-        >
-          <div>Page {{ page }} / {{ totalPages }}</div>
-          <div class="flex gap-2">
-            <UButton
-              label="Prev"
-              color="neutral"
-              variant="outline"
-              :disabled="page <= 1 || pending"
-              @click="go(page - 1)"
-            />
-            <UButton
-              label="Next"
-              class="btn-dark"
-              :disabled="page >= totalPages || pending"
-              @click="go(page + 1)"
-            />
-          </div>
-        </div>
-      </template>
-    </UCard>
-
-    <!-- Create Service Modal -->
-    <UModal v-model:open="showCreate" title="Create Service">
-      <template #body>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-2">
-          <UFormField label="Service Name">
-            <UInput
-              v-model="newService.name"
-              color="neutral"
-              placeholder="CDC Public Service"
-              size="lg"
-            />
-          </UFormField>
-
-          <UFormField label="Code">
-            <UInput
-              v-model="newService.code"
-              color="neutral"
-              placeholder="cdc"
-              size="lg"
-            />
-          </UFormField>
-
-          <UFormField label="Description" class="sm:col-span-2">
-            <UInput
-              v-model="newService.description"
-              color="neutral"
-              placeholder="Optional description"
-              size="lg"
-            />
-          </UFormField>
-
-          <UFormField label="Logo (image file)" class="sm:col-span-2">
-            <UInput
-              type="file"
-              accept="image/*"
-              color="neutral"
-              size="lg"
-              @change="onLogoChange"
-            />
-            <p class="mt-1 text-xs text-gray-500">
-              PNG / JPG / WEBP – small square image works best.
-            </p>
-          </UFormField>
-        </div>
-      </template>
-
-      <template #footer>
-        <div class="flex justify-end gap-3 py-2 px-3">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="outline"
-            @click="showCreate = false; resetNewService()"
-          />
-          <UButton
-            label="Create"
-            class="btn-dark"
-            :loading="creating"
-            :disabled="!newService.name || !newService.code"
-            @click="createService"
-          />
-        </div>
-      </template>
-    </UModal>
-  </div>
+    </template>
+  </UModal>
 </template>
 
 <style scoped>

@@ -1,10 +1,12 @@
+<!-- frontend/app/pages/adm/payments/index.vue -->
 <script setup lang="ts">
 definePageMeta({ layout: 'admin' })
 
 import { ref, onMounted, computed, h, resolveComponent } from 'vue'
-import { type ColumnDef } from '@tanstack/vue-table'
+import type { ColumnDef } from '@tanstack/vue-table'
 import { useMyToast } from '~/composables/useMyToast'
 import { useCurrency } from '~/composables/useCurrency'
+import AdminTablePage from '~/components/AdminTablePage.vue'
 
 const UBadge = resolveComponent('UBadge')
 
@@ -14,13 +16,15 @@ const page = ref(1)
 const pageSize = 10
 const total = ref(0)
 const toast = useMyToast()
-
 const { $api } = useNuxtApp()
+const { format: formatCurrency } = useCurrency()
 
 async function load() {
   pending.value = true
   try {
-    const res = await $api('/adm/payments', { query: { page: page.value, page_size: pageSize } })
+    const res = await $api('/adm/payments', {
+      query: { page: page.value, page_size: pageSize },
+    })
     const raw = res.items ?? (Array.isArray(res) ? res : [])
     payments.value = raw
     total.value = res.total ?? payments.value.length
@@ -58,7 +62,7 @@ onMounted(() => {
 })
 
 const totalPages = computed(() =>
-  Math.max(1, Math.ceil((total.value || payments.value.length) / pageSize))
+  Math.max(1, Math.ceil((total.value || payments.value.length) / pageSize)),
 )
 
 const openDetail = (id: number) => navigateTo(`/adm/payments/${id}`)
@@ -97,22 +101,29 @@ function formatDateLocalMMDDYYYY_hhmmA(s?: string | null): string {
   return `${month}/${day}/${year} ${pad(hh)}:${mm} ${ampm}`
 }
 
-const { format: formatCurrency } = useCurrency()
-
 type RowT = Record<string, any>
 
 /* -----------------------------
     TABLE COLUMNS
 ------------------------------*/
 
-const columns = ref<ColumnDef<RowT, any>[]>([
-  { accessorKey: 'id', header: 'ID', cell: ({ getValue }) => String(getValue() ?? '-') },
-
-  { accessorKey: 'customer_name', header: 'Customer', cell: ({ getValue }) => String(getValue() ?? '-') },
-
-  { accessorKey: 'service_name', header: 'Service', cell: ({ getValue }) => String(getValue() ?? '-') },
-
-  /* STATUS with BADGE */
+const columns: ColumnDef<RowT, any>[] = [
+  {
+    accessorKey: 'id',
+    header: 'ID',
+    cell: ({ getValue }) => String(getValue() ?? '-'),
+  },
+  {
+    accessorKey: 'customer_name',
+    header: 'Customer',
+    cell: ({ getValue }) => String(getValue() ?? '-'),
+  },
+  {
+    accessorKey: 'service_name',
+    header: 'Service',
+    cell: ({ getValue }) => String(getValue() ?? '-'),
+  },
+  // STATUS with BADGE
   {
     accessorKey: 'status',
     header: 'Status',
@@ -126,18 +137,17 @@ const columns = ref<ColumnDef<RowT, any>[]>([
           pending: 'neutral',
           started: 'neutral',
           failed: 'error',
-          canceled: 'error'
+          canceled: 'error',
         }[status] ?? 'neutral'
 
       return h(
         UBadge,
         { class: 'capitalize', variant: 'subtle', color },
-        () => status || '-'
+        () => status || '-',
       )
-    }
+    },
   },
-
-  /* AMOUNT uses INVOICE CURRENCY */
+  // AMOUNT uses INVOICE CURRENCY
   {
     accessorKey: 'amount',
     header: 'Amount',
@@ -147,33 +157,35 @@ const columns = ref<ColumnDef<RowT, any>[]>([
         row.original.currency ??
         'USD'
       return formatCurrency(getValue(), cur)
-    }
+    },
   },
-
   {
     accessorKey: 'invoice_currency',
     header: 'Invoice Currency',
-    cell: ({ getValue }) => String(getValue() ?? '-')
+    cell: ({ getValue }) => String(getValue() ?? '-'),
   },
-
-  /* FEE — ALWAYS USD */
+  // FEE — ALWAYS USD
   {
     accessorKey: 'fee',
     header: 'Fee (USD)',
-    cell: ({ getValue }) => formatCurrency(getValue(), 'USD')
+    cell: ({ getValue }) => formatCurrency(getValue(), 'USD'),
   },
-
-  /* TOTAL — ALWAYS USD */
+  // TOTAL — ALWAYS USD
   {
     accessorKey: 'total_amount',
     header: 'Total (USD)',
-    cell: ({ getValue }) => formatCurrency(getValue(), 'USD')
+    cell: ({ getValue }) => formatCurrency(getValue(), 'USD'),
   },
-
-  { accessorKey: 'currency', header: 'Currency', cell: ({ getValue }) => String(getValue() ?? '-') },
-
-  { accessorKey: 'reference_number', header: 'Reference', cell: ({ getValue }) => String(getValue() ?? '-') },
-
+  {
+    accessorKey: 'currency',
+    header: 'Currency',
+    cell: ({ getValue }) => String(getValue() ?? '-'),
+  },
+  {
+    accessorKey: 'reference_number',
+    header: 'Reference',
+    cell: ({ getValue }) => String(getValue() ?? '-'),
+  },
   {
     accessorKey: 'cdc_transaction_datetime',
     header: 'CDC Time',
@@ -182,15 +194,15 @@ const columns = ref<ColumnDef<RowT, any>[]>([
         row.original.cdc_transaction_datetime ??
         row.original.cdc_transaction_datetime_utc
       return formatDateLocalMMDDYYYY_hhmmA(v)
-    }
+    },
   },
-
   {
     accessorKey: 'created_at',
     header: 'Created At',
-    cell: ({ getValue }) => formatDateLocalMMDDYYYY_hhmmA(getValue())
+    cell: ({ getValue }) =>
+      formatDateLocalMMDDYYYY_hhmmA(getValue()),
   },
-])
+]
 
 /* Navigate row */
 function onRowSelect(e: Event, row: any) {
@@ -201,42 +213,38 @@ function onRowSelect(e: Event, row: any) {
 </script>
 
 <template>
-  <div class="p-6">
-    <div class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-bold">Payment Management</h1>
-      <div class="text-sm text-gray-600">Showing {{ payments.length }} of {{ total }}</div>
-    </div>
+  <AdminTablePage
+    title="Payment Management"
+    :data="payments"
+    :columns="columns"
+    :loading="pending"
+    :page="page"
+    :total-pages="totalPages"
+    :on-row-select="onRowSelect"
+    :disable-pagination="pending"
+    @change-page="go"
+  >
+    <template #loading>
+      <div class="p-6 text-center text-gray-500">
+        Loading payments…
+      </div>
+    </template>
 
-    <UCard class="shadow-sm border rounded-xl overflow-hidden">
-      <UTable
-        :data="payments"
-        :columns="columns"
-        :loading="pending"
-        :onSelect="onRowSelect"
-        class="min-w-full"
-      >
-        <template #loading>
-          <div class="p-6 text-center text-gray-500">Loading payments…</div>
-        </template>
+    <template #empty>
+      <div class="p-6 text-center text-gray-500">
+        No payments found.
+      </div>
+    </template>
 
-        <template #empty>
-          <div class="p-6 text-center text-gray-500">No payments found.</div>
-        </template>
-      </UTable>
-
-      <template #footer>
-        <div class="flex items-center justify-between p-3 text-sm text-gray-600">
-          <div>Page {{ page }} / {{ totalPages }}</div>
-          <div class="flex gap-2">
-            <UButton label="Prev" color="neutral" variant="outline" :disabled="page <= 1 || pending" @click="go(page - 1)" />
-            <UButton label="Next" class="btn-dark" :disabled="page >= totalPages || pending" @click="go(page + 1)" />
-          </div>
-        </div>
-      </template>
-    </UCard>
-  </div>
+    <template #summary>
+      Showing {{ payments.length }} of {{ total || payments.length }} —
+      Page {{ page }} / {{ totalPages }}
+    </template>
+  </AdminTablePage>
 </template>
 
 <style scoped>
-td { vertical-align: middle; }
+td {
+  vertical-align: middle;
+}
 </style>

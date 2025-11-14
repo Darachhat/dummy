@@ -32,7 +32,7 @@
           <SidebarItem label="User" icon="User" to="/adm/users" />
           <SidebarItem label="Payments" icon="CreditCard" to="/adm/payments" />
           <SidebarItem label="Transactions" icon="List" to="/adm/transactions" />
-          <SidebarItem label="Service" icon="Settings" to="/adm/services" />
+          <SidebarItem label="Services" icon="Settings" to="/adm/services" />
         </nav>
       </div>
 

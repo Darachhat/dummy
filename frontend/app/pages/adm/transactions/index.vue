@@ -1,10 +1,12 @@
+<!-- frontend/app/pages/adm/transactions/index.vue -->
 <script setup lang="ts">
 definePageMeta({ layout: 'admin' })
 
 import { ref, onMounted, computed, h, resolveComponent } from 'vue'
-import { type ColumnDef } from '@tanstack/vue-table'
+import type { ColumnDef } from '@tanstack/vue-table'
 import { useMyToast } from '~/composables/useMyToast'
 import { useCurrency } from '~/composables/useCurrency'
+import AdminTablePage from '~/components/AdminTablePage.vue'
 
 const UBadge = resolveComponent('UBadge')
 
@@ -20,7 +22,9 @@ const { format: formatCurrency } = useCurrency()
 async function load() {
   pending.value = true
   try {
-    const res = await $api('/adm/transactions', { query: { page: page.value, page_size: pageSize } })
+    const res = await $api('/adm/transactions', {
+      query: { page: page.value, page_size: pageSize },
+    })
     const raw = res.items ?? (Array.isArray(res) ? res : [])
     transactions.value = raw
     total.value = res.total ?? transactions.value.length
@@ -57,7 +61,9 @@ onMounted(() => {
   load()
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil((total.value || transactions.value.length) / pageSize)))
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil((total.value || transactions.value.length) / pageSize)),
+)
 
 const openDetail = (id: number) => navigateTo(`/adm/transactions/${id}`)
 
@@ -76,36 +82,45 @@ function formatDateLocal(s?: string | null) {
 
 /* Columns */
 type RowT = Record<string, any>
-const columns = ref<ColumnDef<RowT, any>[]>([
+
+const columns: ColumnDef<RowT, any>[] = [
   {
     accessorKey: 'id',
     header: 'ID',
-    cell: ({ getValue }) => String(getValue() ?? '-')
+    cell: ({ getValue }) => String(getValue() ?? '-'),
   },
   {
     accessorKey: 'transaction_id',
     header: 'Transaction ID',
-    cell: ({ getValue }) => String(getValue() ?? '-')
+    cell: ({ getValue }) => String(getValue() ?? '-'),
   },
   {
     accessorKey: 'customer_name',
     header: 'User Name',
-    cell: ({ getValue, row }) => String(getValue() ?? row.original.user_name ?? '-')
+    cell: ({ getValue, row }) =>
+      String(getValue() ?? row.original.user_name ?? '-'),
   },
   {
     accessorKey: 'user_phone',
     header: 'User Phone',
-    cell: ({ getValue, row }) => String(getValue() ?? row.original.customer_phone ?? row.original.phone ?? '-')
+    cell: ({ getValue, row }) =>
+      String(
+        getValue() ??
+          row.original.customer_phone ??
+          row.original.phone ??
+          '-',
+      ),
   },
   {
     accessorKey: 'account_number',
     header: 'Account Number',
-    cell: ({ getValue, row }) => String(row.original.account_number ?? getValue() ?? '-')
+    cell: ({ getValue, row }) =>
+      String(row.original.account_number ?? getValue() ?? '-'),
   },
   {
     accessorKey: 'reference_number',
     header: 'Reference',
-    cell: ({ getValue }) => String(getValue() ?? '-')
+    cell: ({ getValue }) => String(getValue() ?? '-'),
   },
   {
     accessorKey: 'amount',
@@ -113,19 +128,18 @@ const columns = ref<ColumnDef<RowT, any>[]>([
     cell: ({ getValue, row }) => {
       const cur = row.original.invoice_currency ?? row.original.currency ?? 'USD'
       return formatCurrency(getValue() as number | string | null, cur)
-    }
+    },
   },
   {
     accessorKey: 'invoice_currency',
     header: 'Invoice Currency',
-    cell: ({ getValue }) => String(getValue() ?? '-')
+    cell: ({ getValue }) => String(getValue() ?? '-'),
   },
   {
     accessorKey: 'service_name',
     header: 'Service',
-    cell: ({ getValue }) => String(getValue() ?? '-')
+    cell: ({ getValue }) => String(getValue() ?? '-'),
   },
-
   // Status column with UBadge
   {
     accessorKey: 'status',
@@ -133,24 +147,29 @@ const columns = ref<ColumnDef<RowT, any>[]>([
     cell: ({ row }) => {
       const raw = row.original.status ?? ''
       const status = String(raw).trim().toLowerCase()
-      const color = {
-        confirmed: 'success',
-        success: 'success',
-        pending: 'neutral',
-        started: 'neutral',
-        failed: 'error',
-        canceled: 'error'
-      }[status] ?? 'neutral'
-      return h(UBadge, { class: 'capitalize', variant: 'subtle', color }, () => status || '-')
-    }
+      const color =
+        {
+          confirmed: 'success',
+          success: 'success',
+          pending: 'neutral',
+          started: 'neutral',
+          failed: 'error',
+          canceled: 'error',
+        }[status] ?? 'neutral'
+      return h(
+        UBadge,
+        { class: 'capitalize', variant: 'subtle', color },
+        () => status || '-',
+      )
+    },
   },
-
   {
     accessorKey: 'created_at',
     header: 'Created At',
-    cell: ({ getValue, row }) => formatDateLocal(row.original.created_at ?? getValue())
+    cell: ({ getValue, row }) =>
+      formatDateLocal(row.original.created_at ?? getValue()),
   },
-])
+]
 
 function onRowSelect(e: Event, row: any) {
   const target = e.target as HTMLElement
@@ -161,43 +180,44 @@ function onRowSelect(e: Event, row: any) {
 </script>
 
 <template>
-  <div class="p-6">
-    <div class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-bold">Transaction Management</h1>
-      <div class="text-sm text-gray-600">Showing {{ transactions.length }} of {{ total || transactions.length }}</div>
-    </div>
+  <AdminTablePage
+    title="Transaction Management"
+    :data="transactions"
+    :columns="columns"
+    :loading="pending"
+    :page="page"
+    :total-pages="totalPages"
+    :on-row-select="onRowSelect"
+    :disable-pagination="pending"
+    @change-page="go"
+  >
+    <!-- top-right actions (none for now, but slot is available if needed) -->
 
-    <UCard class="shadow-sm border rounded-xl overflow-hidden">
-      <UTable
-        :data="transactions"
-        :columns="columns"
-        :loading="pending"
-        :onSelect="onRowSelect"
-        class="min-w-full"
-      >
-        <template #loading>
-          <div class="p-6 text-center text-gray-500">Loading transactions…</div>
-        </template>
+    <template #loading>
+      <div class="p-6 text-center text-gray-500">
+        Loading transactions…
+      </div>
+    </template>
 
-        <template #empty>
-          <div class="p-6 text-center text-gray-500">No transactions found.</div>
-        </template>
-      </UTable>
+    <template #empty>
+      <div class="p-6 text-center text-gray-500">
+        No transactions found.
+      </div>
+    </template>
 
-      <template #footer>
-        <div class="flex items-center justify-between p-3 text-sm text-gray-600">
-          <div>Page {{ page }} / {{ totalPages }}</div>
-          <div class="flex gap-2">
-            <UButton label="Prev" color="neutral" variant="outline" :disabled="page <= 1 || pending" @click="go(page-1)" />
-            <UButton label="Next" class="btn-dark" :disabled="page >= totalPages || pending" @click="go(page+1)" />
-          </div>
-        </div>
-      </template>
-    </UCard>
-  </div>
+    <template #summary>
+      Showing {{ transactions.length }} of {{ total || transactions.length }} —
+      Page {{ page }} / {{ totalPages }}
+    </template>
+  </AdminTablePage>
 </template>
 
 <style scoped>
-td { vertical-align: middle; }
-.break-ref { max-width: 220px; word-break: break-word; }
+td {
+  vertical-align: middle;
+}
+.break-ref {
+  max-width: 220px;
+  word-break: break-word;
+}
 </style>
