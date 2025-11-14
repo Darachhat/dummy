@@ -24,8 +24,8 @@
         <nav class="space-y-2">
           <SidebarItem label="Home" icon="Home" to="/adm" />
           <SidebarItem label="User Management" icon="User" to="/adm/users" />
-          <SidebarItem label="Payments" icon="CreditCard" to="/adm/payments" />
-          <SidebarItem label="Transactions" icon="List" to="/adm/transactions" />
+          <SidebarItem label="Payments Management" icon="CreditCard" to="/adm/payments" />
+          <SidebarItem label="Transactions Management" icon="List" to="/adm/transactions" />
           <SidebarItem label="Service Management" icon="Settings" to="/adm/services" />
         </nav>
       </div>

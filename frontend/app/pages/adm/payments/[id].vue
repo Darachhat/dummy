@@ -225,7 +225,7 @@ onMounted(loadPayment)
         </div>
 
         <div class="md:col-span-2">
-          <p class="text-sm text-gray-500">Rawt</p>
+          <p class="text-sm text-gray-500">Raw</p>
           <pre class="bg-gray-50 rounded p-3 text-sm overflow-auto" style="max-height:360px;">{{ JSON.stringify(payment ?? {}, null, 2) }}</pre>
         </div>
       </div>

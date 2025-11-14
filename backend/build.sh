@@ -7,7 +7,22 @@ cd $APPLICATION
 
 git checkout $CI_COMMIT_REF_NAME
 
-if [[ $CI_COMMIT_BRANCH == "uat" ]]; then
+if [[ $CI_COMMIT_BRANCH == "dev" ]]; then
+  cat <<EOF > .env
+DATABASE_URL=${DEV_DATABASE_URL}
+SECRET_KEY=${DEV_SECRET_KEY}
+ACCESS_TOKEN_EXPIRE_MINUTES=${DEV_ACCESS_TOKEN_EXPIRE_MINUTES}
+CORS_ORIGINS="${DEV_CORS_ORIGINS}"
+DEBUG=${DEV_DEBUG}
+USE_MOCK_OSP=${DEV_USE_MOCK_OSP}
+OSP_BASE_URL=${DEV_OSP_BASE_URL}
+OSP_AUTH=${DEV_OSP_AUTH}
+OSP_PARTNER=${DEV_OSP_PARTNER}
+OSP_TIMEOUT=${DEV_OSP_TIMEOUT}
+FEE_AMOUNT=${DEV_FEE_AMOUNT}
+USD_TO_KHR_RATE=${DEV_USD_TO_KHR_RATE}
+EOF
+elif [[ $CI_COMMIT_BRANCH == "uat" ]]; then
   cat <<EOF > .env
 DATABASE_URL=${UAT_DATABASE_URL}
 SECRET_KEY=${UAT_SECRET_KEY}
@@ -64,12 +79,12 @@ LATEST_TAG=$DOCKER_REGISTRY/$NAMESPACE/$DOCKER_FOLDER/$DOCKER_IMAGE:latest
 LAST_COMMIT=$(git rev-parse HEAD^)
 CURRENT_COMMIT=$(git rev-parse HEAD)
 
-if git diff --name-only $LAST_COMMIT $CURRENT_COMMIT | grep -qE "Dockerfile|requirements.txt"; then
+if git diff --name-only $LAST_COMMIT $CURRENT_COMMIT | grep -qE "Dockerfile|pyproject.toml"; then
     REBUILD_NEEDED=true
-    echo "Changes detected in Dockerfile or requirements.txt. Rebuild is needed."
+    echo "Changes detected in Dockerfile or pyproject.toml. Rebuild is needed."
 else
     REBUILD_NEEDED=false
-    echo "No changes detected in Dockerfile or requirements.txt. Skipping rebuild."
+    echo "No changes detected in Dockerfile or pyproject.toml. Skipping rebuild."
 fi
 
 if [ "$REBUILD_NEEDED" = true ]; then
@@ -101,7 +116,7 @@ if [ "$REBUILD_NEEDED" = true ]; then
 
     echo "Push complete."
 else
-    echo "Skipping build and push as no changes detected in Dockerfile or requirements.txt"
+    echo "Skipping build and push as no changes detected in Dockerfile or pyproject.toml"
     # Retrieve the last successful build SHA
     LAST_SUCCESSFUL_SHA=$(git rev-parse --short HEAD)
     CI_COMMIT_SHORT_SHA=$LAST_SUCCESSFUL_SHA

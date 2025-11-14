@@ -187,7 +187,7 @@ const columns = ref<ColumnDef<RowT, any>[]>([
 
   {
     accessorKey: 'created_at',
-    header: 'Created',
+    header: 'Created At',
     cell: ({ getValue }) => formatDateLocalMMDDYYYY_hhmmA(getValue())
   },
 ])

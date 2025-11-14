@@ -201,3 +201,12 @@ else
 fi
 
 echo "$MESSAGE" > "$CI_PROJECT_DIR/notification_message.txt"
+
+echo "=== DEBUG: Message to send ==="
+cat "$CI_PROJECT_DIR/notification_message.txt"
+echo ""
+echo "=== Message length: $(wc -c < "$CI_PROJECT_DIR/notification_message.txt") bytes ==="
+echo "=== Byte 950-970 ==="
+cat "$CI_PROJECT_DIR/notification_message.txt" | cut -c950-970
+echo ""
+echo "=============================="

@@ -18,6 +18,8 @@ RUN mkdir -p /workspace/logs && \
 COPY pyproject.toml uv.lock README.md ./
 RUN uv pip install --system --no-cache --prerelease=allow .
 
+COPY . .
+
 USER appuser
 
 EXPOSE 8000

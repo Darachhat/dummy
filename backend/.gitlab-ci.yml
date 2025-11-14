@@ -24,6 +24,23 @@ variables:
   # Service replications
   SERVICE_REPLICAS: $SERVICE_REPLICAS
 
+  # DEV Environment
+  DEPLOY_DEV_SERVER: $DEPLOY_DEV_SERVER
+  DEV_USER: $DEV_USER
+  DEV_URL: $DEV_URL
+  DEV_DATABASE_URL: $DEV_DATABASE_URL
+  DEV_SECRET_KEY: $DEV_SECRET_KEY
+  DEV_ACCESS_TOKEN_EXPIRE_MINUTES: $DEV_ACCESS_TOKEN_EXPIRE_MINUTES
+  DEV_CORS_ORIGINS: $DEV_CORS_ORIGINS
+  DEV_DEBUG: $DEV_DEBUG
+  DEV_USE_MOCK_OSP: $DEV_USE_MOCK_OSP
+  DEV_OSP_BASE_URL: $DEV_OSP_BASE_URL
+  DEV_OSP_AUTH: $DEV_OSP_AUTH
+  DEV_OSP_PARTNER: $DEV_OSP_PARTNER
+  DEV_OSP_TIMEOUT: $DEV_OSP_TIMEOUT
+  DEV_FEE_AMOUNT: $DEV_FEE_AMOUNT
+  DEV_USD_TO_KHR_RATE: $DEV_USD_TO_KHR_RATE
+
   # UAT Environment
   DEPLOY_UAT_SERVER: $DEPLOY_UAT_SERVER
   UAT_USER: $UAT_USER
@@ -118,15 +135,9 @@ variables:
     - echo "$DOCKER_REGISTRY_PASSWORD" | docker login $DOCKER_REGISTRY -u "$DOCKER_REGISTRY_USER" --password-stdin
     - git config --global http.$CI_SERVER_HOST.extraheader "PRIVATE-TOKEN:$PERSONAL_ACCESS_TOKEN"
   script:
-    - chmod +x check_changes.sh
-    - ./check_changes.sh
-    - source build.env
-    - if [ "$REBUILD_NEEDED" = "true" ]; then
-        chmod +x build.sh;
-        ./build.sh;
-      else
-        echo "Skipping build as no changes detected in Dockerfile or requirements.txt";
-      fi
+    - echo "REBUILD_NEEDED=true" >> build.env
+    - chmod +x build.sh
+    - ./build.sh
   after_script:
     - docker logout $DOCKER_REGISTRY
     - echo "BUILD_JOB_STATUS=$CI_JOB_STATUS" >> job_status.env
@@ -136,7 +147,6 @@ variables:
     paths:
       - $CI_PROJECT_DIR/build.env
       - job_status.env
-
 
 .deploy_template: &deploy_template
   stage: deploy
@@ -171,8 +181,6 @@ variables:
   artifacts:
     paths:
       - job_status.env
-
-
 
 .notify_template: &notify_template
   stage: notify
@@ -247,6 +255,70 @@ variables:
       - $CI_PROJECT_DIR/notification_message.txt
     when: always
 
+
+build:dev:
+  extends: .build_template
+  variables:
+    ENV: dev
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: always
+  after_script:
+    - echo "BUILD_JOB_STATUS=$CI_JOB_STATUS" >> job_status.env
+  artifacts:
+    paths:
+      - job_status.env
+
+deploy:dev:
+  extends: .deploy_template
+  variables:
+    ENV: dev
+    DEPLOY_SERVER: $DEPLOY_dev_SERVER
+    ANSIBLE_INVENTORY: $dev_ANSIBLE_INVENTORY
+  needs:
+    - job: build:dev
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: always
+  environment:
+    name: dev
+    url: $dev_URL
+
+notify:dev:
+  extends: .notify_template
+  variables:
+    ENV: dev
+    TELEGRAM_CHAT_ID: $DEV_TELEGRAM_CHAT_ID
+    TELEGRAM_BOT_TOKEN: $DEV_TELEGRAM_BOT_TOKEN
+  needs:
+    - job: build:dev
+      artifacts: true
+      optional: true
+    - job: deploy:dev
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: always
+    - if: '$DEPLOY_MANUALLY_RERUN == "true"'
+      when: always
+  script:
+    - |
+      if [ -f build_status.env ]; then
+        source build_status.env
+      else
+        BUILD_JOB_STATUS="unknown"
+      fi
+      if [ -f deploy_status.env ]; then
+        source deploy_status.env
+      else
+        DEPLOY_JOB_STATUS="unknown"
+      fi
+      echo "BUILD_JOB_STATUS=$BUILD_JOB_STATUS"
+      echo "DEPLOY_JOB_STATUS=$DEPLOY_JOB_STATUS"
+      echo "DEPLOY_MANUALLY_RERUN=$DEPLOY_MANUALLY_RERUN"
+    - chmod +x notify.sh
+    - ./notify.sh
 
 
 build:uat:

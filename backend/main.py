@@ -1,3 +1,4 @@
+#backend/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -26,12 +27,12 @@ from models.transaction import Transaction
 from models.payment import Payment
 
 
-app = FastAPI(title="Dummy Bank Backend (Refactored)")
+app = FastAPI(title="Dummy Bank Backend")
 
 # --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins="*",
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,7 +42,8 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # --- DB Init ---
-Base.metadata.create_all(bind=engine)
+# TODO: Move into Postgres, and this cause conflict on deploy
+# Base.metadata.create_all(bind=engine)
 
 # --- Startup seeding ---
 @app.on_event("startup")
@@ -87,6 +89,12 @@ def seed_data():
                 db.add(Service(**svc))
 
         db.commit()
+        logging.info("Database seeding completed successfully.")
+
+    except Exception as e:
+        logging.error(f"Seeding failed: {e}")
+        db.rollback()
+
     finally:
         db.close()
 
