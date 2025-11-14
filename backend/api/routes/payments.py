@@ -176,11 +176,6 @@ async def confirm_payment(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_user_id),
 ):
-    """Finalize payment by calling OSP commit and confirm endpoints.
-
-    Note: This endpoint expects that `payment.total_amount` is the amount (in `payment.currency`)
-    that should be deducted from the selected account (this is set in /start).
-    """
     payment = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -212,7 +207,7 @@ async def confirm_payment(
             f"[Payment Confirm] Start Ref={payment.reference_number}, Txn={transaction_id}"
         )
 
-        # 🔁 Always refresh session before commit
+        # Always refresh session before commit
         lookup_res = await osp_lookup(payment.reference_number)
         if lookup_res.get("response_code") == 200:
             payment.session_id = lookup_res.get("session_id")
@@ -293,13 +288,14 @@ async def confirm_payment(
         if confirm_res.get("response_code") != 200:
             raise HTTPException(status_code=400, detail="OSP confirm failed")
 
+        # Mark as confirmed in DB
         mark_confirmed(payment, db)
 
         # --- Prepare local time for UI ---
         local_cdc_time = to_local_time(payment.cdc_transaction_datetime)
 
         return PaymentConfirmOut(
-            status="confirmed",
+            status=payment.status,
             transaction_id=tx.transaction_id or str(tx.id),
             account_id=account.id,
             reference_number=payment.reference_number,
@@ -332,8 +328,27 @@ async def confirm_payment(
             },
         )
 
-    except Exception as e:
+    except HTTPException as e:
+        # Mark payment as failed on expected OSP / business errors
         db.rollback()
+        try:
+            p = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
+            if p:
+                p.status = "failed"
+                db.commit()
+        except Exception:
+            db.rollback()
+        raise e
+    except Exception as e:
+        # Unexpected error: mark as failed and return 500
+        db.rollback()
+        try:
+            p = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
+            if p:
+                p.status = "failed"
+                db.commit()
+        except Exception:
+            db.rollback()
         logger.exception(f"Payment confirm failed: {e}")
         raise HTTPException(status_code=500, detail=f"Confirm failed: {e}")
 
@@ -356,9 +371,11 @@ async def reverse_payment(
 
         payment.status = "reversed"
         db.commit()
-        return {"status": "reversed", "osp_response": res}
+        return {"status": payment.status, "osp_response": res}
 
     except Exception as e:
         db.rollback()
         logger.exception(f"Reverse failed: {e}")
+        payment = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
+        if payment: payment.status = "failed"; db.commit()
         raise HTTPException(status_code=500, detail=str(e))

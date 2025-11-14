@@ -86,7 +86,9 @@ const BACKEND_URL = config.public.apiBase
 
 onMounted(async () => {
   try {
-    transactions.value = await $api('/transactions/')
+    const res = await $api('/transactions/')
+    // 👇 Handle both old (array) and new (paginated) shapes safely
+    transactions.value = Array.isArray(res) ? res : (res.items ?? [])
   } catch (err) {
     console.error('Failed to load transactions', err)
   }
@@ -101,15 +103,14 @@ const goDetail = (id: number | string) => {
   }
 }
 
-
 const getLogoUrl = (path: string) => {
   if (!path) return `${BACKEND_URL}/static/logos/default.svg`
   if (path.startsWith('http')) return path
   return `${BACKEND_URL}${path}`
 }
+
 const { format } = useCurrency()
 const formatCurrency = (val?: number | string | null, currency = 'USD') => {
   return format(val, currency)
 }
-
 </script>

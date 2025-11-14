@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from core.security import create_token, verify_password
 from db.session import SessionLocal
 from models.user import User
+from core.rate_limit import rate_limit_login 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -16,7 +17,7 @@ class TokenOut(BaseModel):
     role: str
     name: str
 
-@router.post("/login", response_model=TokenOut)
+@router.post("/login", response_model=TokenOut, dependencies=[Depends(rate_limit_login)])
 def login(body: LoginIn):
     db = SessionLocal()
     try:
