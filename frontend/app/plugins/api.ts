@@ -1,4 +1,4 @@
-// frontend\app\plugins\api.ts
+// frontend/app/plugins/api.ts
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
   const base = config.public.apiBase
@@ -19,11 +19,18 @@ export default defineNuxtPlugin(() => {
     })
   }
 
-  // Main API handler
   const $api = async (path: string, opts: any = {}) => {
+    const body = opts.body
+    const isFormData =
+      typeof FormData !== 'undefined' && body instanceof FormData
+
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(opts.headers || {}),
+    }
+
+    // ONLY set JSON content-type when not sending FormData
+    if (!isFormData && body !== undefined && body !== null) {
+      headers['Content-Type'] = 'application/json'
     }
 
     // Attach token if available
@@ -31,20 +38,22 @@ export default defineNuxtPlugin(() => {
       headers['Authorization'] = `Bearer ${token.value}`
     }
 
-    const options = {
+    const options: any = {
       method: opts.method || 'GET',
       headers,
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    }
+
+    // Let $fetch handle encoding: object -> JSON, FormData -> multipart
+    if (body !== undefined) {
+      options.body = isFormData ? body : body
     }
 
     try {
-      // Ensure consistent path structure
       const url = path.startsWith('http') ? path : `${base}${path}`
       return await $fetch(url, options)
     } catch (e: any) {
       const status = e?.response?.status
 
-      // Handle unauthorized → redirect to login
       if (status === 401) {
         if (process.client) {
           localStorage.removeItem('token')
@@ -53,7 +62,6 @@ export default defineNuxtPlugin(() => {
         }
       }
 
-      // Optional: handle 403 Forbidden (for admin pages)
       if (status === 403 && process.client) {
         console.warn('Access denied — admin only')
         navigateTo('/')

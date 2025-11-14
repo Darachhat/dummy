@@ -55,6 +55,7 @@ build/
 *.sublime-workspace
 *.code-workspace
 
-# Ignore static uploads (keep logos)
+# Ignore static uploads
 static/uploads/
-!static/logos/
+static/logos/
+backend/static/logos/

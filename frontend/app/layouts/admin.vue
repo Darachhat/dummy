@@ -10,7 +10,13 @@
     >
       <div>
         <div class="flex items-center justify-between mb-8">
-          <h1 class="text-2xl font-bold">ADM</h1>
+          <NuxtLink
+  to="/adm"
+  class="text-2xl font-bold hover:text-neutral transition-colors"
+>
+  ADM
+</NuxtLink>
+
           <UButton
             v-if="!isDesktop"
             color="neutral"
@@ -20,18 +26,18 @@
           />
         </div>
 
-        <!-- Navigation (your SidebarItem) -->
+        <!-- Navigation -->
         <nav class="space-y-2">
           <SidebarItem label="Home" icon="Home" to="/adm" />
-          <SidebarItem label="User Management" icon="User" to="/adm/users" />
-          <SidebarItem label="Payments Management" icon="CreditCard" to="/adm/payments" />
-          <SidebarItem label="Transactions Management" icon="List" to="/adm/transactions" />
-          <SidebarItem label="Service Management" icon="Settings" to="/adm/services" />
+          <SidebarItem label="User" icon="User" to="/adm/users" />
+          <SidebarItem label="Payments" icon="CreditCard" to="/adm/payments" />
+          <SidebarItem label="Transactions" icon="List" to="/adm/transactions" />
+          <SidebarItem label="Service" icon="Settings" to="/adm/services" />
         </nav>
       </div>
 
       <UButton
-        color="red"
+        color="error"
         variant="subtle"
         label="Logout"
         icon="i-lucide-log-out"

@@ -13,42 +13,49 @@
   </div>
 
   <!-- USERS TABLE -->
-  <UCard class="shadow-sm border rounded-xl overflow-hidden">
-    <UTable
-      :data="users"
-      :columns="columns"
-      class="min-w-full"
-      :loading="pending"
-    >
-      <template #created_at-cell="{ row }">
-        {{ formatDate(row.original.created_at) }}
-      </template>
-
-      <template #actions-cell="{ row }">
-        <div class="text-right">
-          <UDropdownMenu :items="getActions(row.original)">
-            <UButton
-              label="Actions"
-              icon="i-lucide-ellipsis-vertical"
-              color="neutral"
-              variant="ghost"
-              aria-label="Actions"
-            />
-          </UDropdownMenu>
-        </div>
-      </template>
-    </UTable>
-
-    <template #footer>
-      <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 text-sm text-gray-600 mt-3">
-        <span>Showing {{ users.length }} of {{ total }} users — Page {{ page }} / {{ totalPages }}</span>
-        <div class="flex gap-2">
-          <UButton label="Prev" color="neutral" variant="outline" :disabled="page<=1 || pending" @click="go(page-1)" />
-          <UButton label="Next" class="btn-dark" :disabled="page>=totalPages || pending" @click="go(page+1)" />
-        </div>
-      </div>
+ <!-- USERS TABLE -->
+<UCard class="shadow-sm border rounded-xl overflow-hidden">
+  <UTable
+    :data="users"
+    :columns="columns"
+    :loading="pending"
+    :onSelect="onRowSelect"
+    class="min-w-full cursor-pointer"
+  >
+    <template #created_at-cell="{ row }">
+      {{ formatDate(row.original.created_at) }}
     </template>
-  </UCard>
+
+    <template #empty>
+      <div class="p-6 text-center text-gray-500">No users found.</div>
+    </template>
+  </UTable>
+
+  <template #footer>
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 text-sm text-gray-600 mt-3">
+      <span>
+        Showing {{ users.length }} of {{ total }} users — Page {{ page }} / {{ totalPages }}
+      </span>
+
+      <div class="flex gap-2">
+        <UButton
+          label="Prev"
+          color="neutral"
+          variant="outline"
+          :disabled="page<=1 || pending"
+          @click="go(page-1)"
+        />
+        <UButton
+          label="Next"
+          class="btn-dark"
+          :disabled="page>=totalPages || pending"
+          @click="go(page+1)"
+        />
+      </div>
+    </div>
+  </template>
+</UCard>
+
 
   <!-- Create User Modal -->
   <UModal v-model:open="showCreate" title="Create New User">
@@ -111,7 +118,6 @@ const columns = [
   { id: 'phone', header: 'Phone', accessorKey: 'phone', sortable: true },
   { id: 'role', header: 'Role', accessorKey: 'role', sortable: true },
   { id: 'created_at', header: 'Created', accessorKey: 'created_at', sortable: true },
-  { id: 'actions', header: '' }
 ]
 
 function getActions(user: any) {
@@ -120,6 +126,12 @@ function getActions(user: any) {
     [{ label: 'Delete', icon: 'i-lucide-trash', color: 'error', onSelect: () => onDelete(user) }]
   ]
 }
+function onRowSelect(e: Event, row: any) {
+  const target = e.target as HTMLElement
+  if (target.closest('button') || target.closest('a')) return
+  navigateTo(`/adm/users/${row.original.id}`)
+}
+
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 const sort = ref<{ column: string; direction: 'asc' | 'desc' }>({ column: 'created_at', direction: 'desc' })
@@ -141,6 +153,7 @@ async function load() {
     users.value = []; total.value = 0
   } finally { pending.value = false }
 }
+
 
 async function createUser() {
   if (!newUser.name || !newUser.phone || !newUser.password) {
