@@ -9,6 +9,8 @@ from core.config import settings
 from core.security import hash_password
 from db.base import Base
 from db.session import engine, SessionLocal
+from alembic.config import Config
+from alembic import command
 
 # Routers
 from api.routes import auth as auth_routes
@@ -50,6 +52,13 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # --- DB Init ---
 # TODO: Move into Postgres, and this cause conflict on deploy
 # Base.metadata.create_all(bind=engine)
+
+
+# --- Run Migrations ---
+def run_migrations():
+    """Run Alembic migrations to apply database schema changes."""
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")  # Apply all migrations
 
 # --- Startup seeding ---
 @app.on_event("startup")
