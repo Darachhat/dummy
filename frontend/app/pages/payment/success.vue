@@ -1,3 +1,4 @@
+<!-- src/pages/payment/success.vue -->
 <template>
   <div class="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-center px-4 py-10">
     <!-- Success Header -->

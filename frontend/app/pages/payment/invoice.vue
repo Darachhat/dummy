@@ -1,15 +1,7 @@
 <!-- src/pages/payment/invoice.vue -->
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
-    <!-- Header -->
-    <div class="relative flex items-center justify-center w-full max-w-lg mb-8">
-      <button
-        @click="navigateTo('/payment/start')"
-        class="absolute left-4 p-2 bg-white rounded-full shadow hover:bg-gray-100 transition"
-      >
-        <ArrowLeft class="w-5 h-5 text-gray-700" />
-      </button>
-
+  <AppPage :back-to="'/payment/start'">
+    <template #header-center>
       <div class="flex items-center gap-2">
         <img
           v-if="paymentSelection?.service?.logo_url"
@@ -21,12 +13,10 @@
           Bill to {{ paymentSelection?.service?.name || 'Service' }}
         </h2>
       </div>
-    </div>
+    </template>
 
     <!-- Invoice Card -->
-    <div
-      class="bg-white rounded-2xl shadow w-full max-w-lg p-6 space-y-5 border border-gray-100"
-    >
+    <div class="bg-white rounded-2xl shadow w-full p-6 space-y-5 border border-gray-100">
       <!-- Account Selection -->
       <div>
         <label class="block text-sm text-gray-600 mb-1">My Account</label>
@@ -42,12 +32,10 @@
         </select>
         <p v-if="accountBalance !== null" class="text-sm text-gray-500 mt-1">
           Balance:
-          <span>{{
-            formatCurrency(accountBalance, accountCurrency || 'USD')
-          }}</span>
-          <span class="ml-2 text-xs text-gray-400"
-            >({{ accountCurrency || 'USD' }})</span
-          >
+          <span>{{ formatCurrency(accountBalance, accountCurrency || 'USD') }}</span>
+          <span class="ml-2 text-xs text-gray-400">
+            ({{ accountCurrency || 'USD' }})
+          </span>
         </p>
       </div>
 
@@ -62,7 +50,6 @@
           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
         />
 
-        <!-- Already Paid Notice -->
         <transition name="fade">
           <div
             v-if="invoiceAlreadyPaid"
@@ -80,27 +67,21 @@
           class="flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2 bg-gray-100 text-gray-700"
         >
           <span>{{ formatCurrency(amount, invoice?.currency || 'KHR') }}</span>
-          <span class="text-sm text-gray-500">{{
-            (invoice?.currency || 'KHR').toUpperCase()
-          }}</span>
+          <span class="text-sm text-gray-500">
+            {{ (invoice?.currency || 'KHR').toUpperCase() }}
+          </span>
         </div>
       </div>
 
       <!-- PAY Button -->
       <button
-        :disabled="
-          !invoice ||
-          !selectedAccountId ||
-          !hasSufficientBalance ||
-          invoiceAlreadyPaid
-        "
+        :disabled="!invoice || !selectedAccountId || !hasSufficientBalance || invoiceAlreadyPaid"
         class="w-full py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
         @click="submitPayment"
       >
         Pay Now
       </button>
 
-      <!-- Insufficient balance -->
       <p
         v-if="selectedAccountId && invoice && !hasSufficientBalance"
         class="text-red-600 text-sm text-center mt-2"
@@ -108,137 +89,122 @@
         Insufficient balance in your selected account.
       </p>
     </div>
-  </div>
+  </AppPage>
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft } from 'lucide-vue-next';
-import { convertToUSD } from '~/utils/helpers';
-import { useMyToast } from '~/composables/useMyToast';
-import { onMounted, ref, computed } from 'vue';
-import { formatCurrency, convertAmount } from '~/utils/helpers';
+import AppPage from '~/components/AppPage.vue'
+import { useLogoUrl } from '~/composables/useLogoUrl'
+import { convertAmount, formatCurrency } from '~/utils/helpers'
+import { useMyToast } from '~/composables/useMyToast'
 
-const { $api } = useNuxtApp();
+const { $api } = useNuxtApp()
 const toast = useMyToast()
-const config = useRuntimeConfig();
-const BACKEND_URL = config.public.apiBase;
-const paymentSelection = useState<any>('paymentSelection');
-const accounts = ref<any[]>([]);
-const selectedAccountId = ref<number | null>(null);
-const accountBalance = ref<number | null>(null);
-const reference = ref('');
-const amount = ref<number | null>(null);
-const invoice = ref<any>(null);
-const fee = ref(10.0);
-const invoiceAlreadyPaid = ref(false);
-const accountCurrency = ref<string | null>(null);
+const paymentSelection = useState<any>('paymentSelection')
 
-function getLogoUrl(path: string | null | undefined) {
-  const base = (useRuntimeConfig().public.apiBase || '') as string;
-  if (!path) return `${base}/static/logos/default.svg`;
-  return path.startsWith('http') ? path : `${base}${path}`;
-}
+const accounts = ref<any[]>([])
+const selectedAccountId = ref<number | null>(null)
+const accountBalance = ref<number | null>(null)
+const reference = ref('')
+const amount = ref<number | null>(null)
+const invoice = ref<any>(null)
+const fee = ref(10.0)
+const invoiceAlreadyPaid = ref(false)
+const accountCurrency = ref<string | null>(null)
+
+const { getLogoUrl } = useLogoUrl()
 
 onMounted(async () => {
   try {
-    const me = await $api('/me');
+    const me = await $api('/me')
     accounts.value = (me.accounts || []).map((a: any) => ({
       ...a,
       balance: Number(a.balance ?? 0),
       currency: (a.currency || 'USD').toUpperCase(),
-    }));
+    }))
     if (accounts.value.length) {
-      selectedAccountId.value = accounts.value[0].id;
-      updateAccountBalance();
+      selectedAccountId.value = accounts.value[0].id
+      updateAccountBalance()
     }
   } catch (e) {
-    console.error('Failed to load accounts', e);
-    toast.show('Failed to load accounts', 'error');
+    console.error('Failed to load accounts', e)
+    toast.show('Failed to load accounts', 'error')
   }
-});
+})
 
 const updateAccountBalance = () => {
-  const acc = accounts.value.find(
-    (a) => a.id === Number(selectedAccountId.value)
-  );
+  const acc = accounts.value.find((a) => a.id === Number(selectedAccountId.value))
   if (acc) {
-    accountBalance.value = Number(acc.balance ?? 0);
-    accountCurrency.value = (acc.currency || 'USD').toUpperCase();
+    accountBalance.value = Number(acc.balance ?? 0)
+    accountCurrency.value = (acc.currency || 'USD').toUpperCase()
   } else {
-    accountBalance.value = null;
-    accountCurrency.value = null;
+    accountBalance.value = null
+    accountCurrency.value = null
   }
-};
+}
 
 const lookupInvoice = async () => {
-  if (!reference.value) return;
+  if (!reference.value) return
   try {
-    const res = await $api(
-      `/payments/lookup?reference_number=${reference.value}`
-    );
-    invoice.value = res;
-    amount.value = Number(res.amount);
-    invoiceAlreadyPaid.value = false;
-    toast.show('Invoice loaded successfully', 'success');
+    const res = await $api(`/payments/lookup?reference_number=${reference.value}`)
+    invoice.value = res
+    amount.value = Number(res.amount)
+    invoiceAlreadyPaid.value = false
+    toast.show('Invoice loaded successfully', 'success')
   } catch (err: any) {
-    invoice.value = null;
-    amount.value = null;
+    invoice.value = null
+    amount.value = null
 
     if (err.response?.status === 423) {
-      invoiceAlreadyPaid.value = true;
-      toast.show('This invoice has already been paid.', 'warning');
+      invoiceAlreadyPaid.value = true
+      toast.show('This invoice has already been paid.', 'warning')
       setTimeout(() => {
-        reference.value = '';
-        invoiceAlreadyPaid.value = false;
-      }, 2500);
+        reference.value = ''
+        invoiceAlreadyPaid.value = false
+      }, 2500)
     } else {
-      invoiceAlreadyPaid.value = false;
-      toast.show(
-        'Invalid reference number or failed to fetch invoice.',
-        'error'
-      );
+      invoiceAlreadyPaid.value = false
+      toast.show('Invalid reference number or failed to fetch invoice.', 'error')
     }
   }
-};
+}
 
 const hasSufficientBalance = computed(() => {
-  if (!selectedAccountId.value || !invoice.value) return true;
-  const acc = accounts.value.find(
-    (a) => a.id === Number(selectedAccountId.value)
-  );
-  if (!acc) return false;
+  if (!selectedAccountId.value || !invoice.value) return true
+  const acc = accounts.value.find((a) => a.id === Number(selectedAccountId.value))
+  if (!acc) return false
 
-  const acctCurrency = (acc.currency || 'USD').toUpperCase();
-  const invoiceCurrency = (invoice.value.currency || 'KHR').toUpperCase();
-  const usdToKhrRate = Number(invoice.value.usd_to_khr_rate || 4000);
+  const acctCurrency = (acc.currency || 'USD').toUpperCase()
+  const invoiceCurrency = (invoice.value.currency || 'KHR').toUpperCase()
+  const usdToKhrRate = Number(invoice.value.usd_to_khr_rate || 4000)
 
-  const invoiceAmt = Number(invoice.value.amount || 0);
+  const invoiceAmt = Number(invoice.value.amount || 0)
   const invoiceConverted = convertAmount(
     invoiceAmt,
     invoiceCurrency,
     acctCurrency,
-    usdToKhrRate
-  );
+    usdToKhrRate,
+  )
 
   const feeConverted = convertAmount(
     Number(fee.value || 0),
     'USD',
     acctCurrency,
-    usdToKhrRate
-  );
+    usdToKhrRate,
+  )
 
-  const totalNeeded = invoiceConverted + feeConverted;
-  return Number(acc.balance ?? 0) >= totalNeeded;
-});
+  const totalNeeded = invoiceConverted + feeConverted
+  return Number(acc.balance ?? 0) >= totalNeeded
+})
 
 const submitPayment = async () => {
   try {
     const res = await $api(
       `/payments/start?account_id=${selectedAccountId.value}&reference_number=${reference.value}&service_id=${paymentSelection.value.service_id}`,
-      { method: 'POST' }
-    );
+      { method: 'POST' },
+    )
 
-    const payment = useState('payment');
+    const payment = useState('payment')
     payment.value = {
       id: res.payment_id,
       reference_number: res.reference_number,
@@ -249,26 +215,15 @@ const submitPayment = async () => {
       currency: res.currency,
       service: paymentSelection.value.service,
       from_account: accounts.value.find(
-        (a) => a.id === Number(selectedAccountId.value)
+        (a) => a.id === Number(selectedAccountId.value),
       ),
       invoice_currency: invoice.value.currency,
       invoice_amount: amount.value,
-    };
+    }
 
-    navigateTo('/payment/confirm');
+    navigateTo('/payment/confirm')
   } catch {
-    toast.show('Failed to start payment', 'error');
+    toast.show('Failed to start payment', 'error')
   }
-};
+}
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.4s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

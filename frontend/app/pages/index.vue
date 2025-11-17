@@ -8,63 +8,67 @@
     ></div>
 
     <!-- Sidebar -->
-   <aside
-  :class="[
-    'bg-white shadow-sm z-40 transform transition-transform duration-300 ease-in-out fixed md:static md:translate-x-0',
-    'h-screen md:h-auto w-64 flex flex-col justify-between p-6 md:min-h-screen', 
-    'rounded-none md:rounded-xl', // smooth on desktop, flat on mobile
-    sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-  ]"
->
-  <div class="flex-1 flex flex-col justify-between">
-    <div>
-      <div class="flex items-center justify-between mb-8">
-        <h1 class="text-2xl font-bold text-gray-800">DummyBank</h1>
+    <aside
+      :class="[
+        'bg-white shadow-sm z-40 transform transition-transform duration-300 ease-in-out fixed md:static md:translate-x-0',
+        'h-screen md:h-auto w-64 flex flex-col justify-between p-6 md:min-h-screen',
+        'rounded-none md:rounded-xl',
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+      ]"
+    >
+      <div class="flex-1 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-8">
+            <h1 class="text-2xl font-bold text-gray-800">DummyBank</h1>
+            <button
+              v-if="!isDesktop"
+              @click="sidebarOpen = false"
+              class="text-gray-500 hover:text-gray-800 md:hidden"
+            >
+              <X class="w-5 h-5" />
+            </button>
+          </div>
+
+          <nav class="space-y-3 flex-1">
+            <SidebarItem label="Home" icon="Home" to="/" :collapsed="!isDesktop" />
+            <SidebarItem label="Payments" icon="CreditCard" to="/payment/start" :collapsed="!isDesktop" />
+            <SidebarItem label="Transactions" icon="List" to="/transactions" :collapsed="!isDesktop" />
+            <SidebarItem label="Accounts" icon="User" to="/accounts" :collapsed="!isDesktop" />
+          </nav>
+        </div>
+
         <button
-          v-if="!isDesktop"
-          @click="sidebarOpen = false"
-          class="text-gray-500 hover:text-gray-800 md:hidden"
+          @click="logout"
+          class="flex items-center gap-2 text-gray-500 hover:text-red-600 transition mt-8"
         >
-          <X class="w-5 h-5" />
+          <LogOut class="w-5 h-5" />
+          <span>Logout</span>
         </button>
       </div>
-
-      <nav class="space-y-3 flex-1">
-        <SidebarItem label="Home" icon="Home" to="/" :collapsed="!isDesktop" />
-        <SidebarItem label="Payments" icon="CreditCard" to="/payment/start" :collapsed="!isDesktop" />
-        <SidebarItem label="Transactions" icon="List" to="/transactions" :collapsed="!isDesktop" />
-        <SidebarItem label="Accounts" icon="User" to="/accounts" :collapsed="!isDesktop" />
-      </nav>
-    </div>
-
-    <button
-      @click="logout"
-      class="flex items-center gap-2 text-gray-500 hover:text-red-600 transition mt-8"
-    >
-      <LogOut class="w-5 h-5" />
-      <span>Logout</span>
-    </button>
-  </div>
-</aside>
+    </aside>
 
     <!-- Main content -->
     <main class="flex-1 flex flex-col p-4 md:p-8 w-full relative">
-     <!-- Mobile Navbar -->
-<div
-  class="flex items-center md:hidden mb-6 sticky top-0 bg-gray-50 z-20 px-2"
->
-  <button
-    @click="sidebarOpen = true"
-    class="text-gray-700 hover:text-gray-900"
-  >
-    <Menu class="w-6 h-6" />
-  </button>
-</div>
-
+      <!-- Mobile Navbar -->
+      <div
+        class="flex items-center md:hidden mb-6 sticky top-0 bg-gray-50 z-20 px-2 py-2"
+      >
+        <button
+          @click="sidebarOpen = true"
+          class="text-gray-700 hover:text-gray-900"
+        >
+          <Menu class="w-6 h-6" />
+        </button>
+        <h2 class="ml-3 text-lg font-semibold truncate">
+          {{ currentPageTitle }}
+        </h2>
+      </div>
 
       <!-- Desktop header -->
       <div class="hidden md:flex justify-between items-center mb-8">
-        <h2 class="text-2xl font-bold text-gray-800 capitalize">{{ currentPageTitle }}</h2>
+        <h2 class="text-2xl font-bold text-gray-800 capitalize">
+          {{ currentPageTitle }}
+        </h2>
       </div>
 
       <!-- Account Summary (Only for Home page) -->
@@ -83,11 +87,13 @@
           class="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl shadow-lg p-6 flex-1"
         >
           <h3 class="text-lg font-semibold">Primary Account</h3>
-          <p class="text-sm mt-2 text-gray-300">{{ accountName }}</p>
+          <p class="text-sm mt-2 text-gray-300">{{ accountName || '—' }}</p>
           <div class="mt-6 text-xl tracking-widest break-all">
             {{ maskedAccountNumber }}
           </div>
-          <div class="mt-4 text-sm text-gray-400">{{ accountType }}</div>
+          <div class="mt-4 text-sm text-gray-400">
+            {{ accountType }}
+          </div>
         </div>
       </div>
 
@@ -111,7 +117,7 @@
             v-for="t in transactions"
             :key="t.id"
             @click="goDetail(t.id)"
-            class="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 hover:bg-gray-50 transition"
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 hover:bg-gray-50 transition cursor-pointer"
           >
             <div class="flex items-center gap-3 mb-2 sm:mb-0">
               <img
@@ -124,7 +130,9 @@
                 <p class="text-sm font-semibold text-gray-800">
                   {{ t.service_name || 'Transaction' }}
                 </p>
-                <p class="text-xs text-gray-500">Ref: {{ t.reference_number }}</p>
+                <p class="text-xs text-gray-500">
+                  Ref: {{ t.reference_number }}
+                </p>
               </div>
             </div>
 
@@ -138,7 +146,9 @@
                 {{ t.direction === 'debit' ? '-' : '+' }}
                 {{ formatCurrency(t.amount) }}
               </p>
-              <p class="text-xs text-gray-500">{{ formatDate(t.created_at) }}</p>
+              <p class="text-xs text-gray-500">
+                {{ formatDate(t.created_at) }}
+              </p>
             </div>
           </div>
         </div>
@@ -189,30 +199,30 @@ import SidebarItem from '~/components/SidebarItem.vue'
 import { LogOut, Menu, X, Plus } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { useCurrency } from '~/composables/useCurrency'
-
+import { useMediaQuery } from '@vueuse/core'
 
 const { $api } = useNuxtApp()
 const { logout } = useAuth()
 const route = useRoute()
+
 const balance = ref(0)
 const transactions = ref<any[]>([])
 const accountName = ref('')
 const accountNumber = ref('')
 const accountType = ref('Main Wallet')
+
 const sidebarOpen = ref(false)
 const showActions = ref(false)
+
 const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
 
-const isDesktop = ref(false)
+// Responsive: desktop vs mobile
+const isDesktop = useMediaQuery('(min-width: 768px)')
 
-onMounted(() => {
-  const updateScreenSize = () => {
-    isDesktop.value = window.innerWidth >= 768
-  }
-  updateScreenSize()
-  window.addEventListener('resize', updateScreenSize)
-  onBeforeUnmount(() => window.removeEventListener('resize', updateScreenSize))
+// Close sidebar when switching to desktop
+watch(isDesktop, (val) => {
+  if (val) sidebarOpen.value = false
 })
 
 const toggleActions = (state?: boolean) => {
@@ -252,82 +262,13 @@ const handleAction = (action: any) => {
   navigateTo(action.path)
 }
 
-onMounted(async () => {
-  // Wait until token is restored
-  const storedToken = localStorage.getItem('token')
-  if (!storedToken) {
-    console.warn('No token found, redirecting to login')
-    return navigateTo('/login')
-  }
-
-  try {
-    // Fetch user info
-    const me = await $api('/me/')
-    console.log('ME ->', me)
-    if (!me) throw new Error('Unauthorized')
-
-    balance.value = me.total_balance || 0
-    const accounts = me.accounts || []
-    if (accounts.length > 0) {
-      accountName.value = accounts[0].name
-      accountNumber.value = accounts[0].number
-      accountType.value = accounts[0].type
-    }
-
-    let txs = []
-    if (accounts.length > 0 && Array.isArray(accounts[0].transactions) && accounts[0].transactions.length) {
-      txs = accounts[0].transactions
-      console.log('Using transactions from /me.accounts[0].transactions', txs)
-    } else if (accounts.length > 0) {
-      try {
-        txs = await $api(`/accounts/${accounts[0].id}/transactions`)
-        console.log('Fetched /accounts/:id/transactions ->', txs)
-      } catch (err) {
-        console.warn('Failed to fetch account transactions', err)
-        txs = []
-      }
-    } else {
-      try {
-        const maybeTxs = await $api('/transactions/')
-        console.log('/transactions/ ->', maybeTxs)
-        txs = Array.isArray(maybeTxs) ? maybeTxs : (maybeTxs.items || [])
-      } catch (err) {
-        console.warn('Failed to fetch /transactions/', err)
-        txs = []
-      }
-    }
-
-    transactions.value = (txs || []).slice(0, 5).map(t => ({
-      id: t.id,
-      transaction_id: t.transaction_id,
-      reference_number: t.reference_number,
-      description: t.description,
-      amount: t.amount ?? t.total_amount ?? 0,
-      total_amount: t.total_amount ?? t.amount ?? 0,
-      currency: t.currency || 'USD',
-      direction: t.direction || 'debit',
-      service_name: t.service_name || (t.payment?.service?.name) || null,
-      service_logo_url: t.service_logo_url || (t.payment?.service?.logo_url) || null,
-      created_at: t.created_at || t.createdAt || null,
-    }))
-
-  } catch (err: any) {
-    console.error('Failed to load dashboard', err)
-    if (err?.response?.status === 401) {
-      localStorage.removeItem('token')
-      navigateTo('/login')
-    }
-  }
-})
-
-
 const maskedAccountNumber = computed(() =>
   accountNumber.value
     ? accountNumber.value.replace(/\d(?=\d{4})/g, '*')
-    : '**** **** **** 0000'
+    : '**** **** **** 0000',
 )
-const goDetail = (id: number) => navigateTo(`/transactions/${id}`)
 
+const goDetail = (id: number) => navigateTo(`/transactions/${id}`)
 const goTransactions = () => navigateTo('/transactions')
 
 const getLogoUrl = (path: string) =>
@@ -348,6 +289,77 @@ const formatDate = (isoString?: string) => {
   const date = new Date(isoString)
   return date.toLocaleDateString()
 }
+
+async function loadDashboard() {
+  const storedToken = localStorage.getItem('token')
+  if (!storedToken) {
+    console.warn('No token found, redirecting to login')
+    return navigateTo('/login')
+  }
+
+  try {
+    const me = await $api('/me/')
+    if (!me) throw new Error('Unauthorized')
+
+    balance.value = me.total_balance || 0
+
+    const accounts = me.accounts || []
+    if (accounts.length > 0) {
+      accountName.value = accounts[0].name
+      accountNumber.value = accounts[0].number
+      accountType.value = accounts[0].type || 'Main Wallet'
+    }
+
+    let txs: any[] = []
+
+    if (
+      accounts.length > 0 &&
+      Array.isArray(accounts[0].transactions) &&
+      accounts[0].transactions.length
+    ) {
+      txs = accounts[0].transactions
+    } else if (accounts.length > 0) {
+      try {
+        txs = await $api(`/accounts/${accounts[0].id}/transactions`)
+      } catch (err) {
+        console.warn('Failed to fetch account transactions', err)
+        txs = []
+      }
+    } else {
+      try {
+        const maybeTxs = await $api('/transactions/')
+        txs = Array.isArray(maybeTxs) ? maybeTxs : (maybeTxs.items || [])
+      } catch (err) {
+        console.warn('Failed to fetch /transactions/', err)
+        txs = []
+      }
+    }
+
+    transactions.value = (txs || []).slice(0, 5).map((t: any) => ({
+      id: t.id,
+      transaction_id: t.transaction_id,
+      reference_number: t.reference_number,
+      description: t.description,
+      amount: t.amount ?? t.total_amount ?? 0,
+      total_amount: t.total_amount ?? t.amount ?? 0,
+      currency: t.currency || 'USD',
+      direction: t.direction || 'debit',
+      service_name: t.service_name || t.payment?.service?.name || null,
+      service_logo_url: t.service_logo_url || t.payment?.service?.logo_url || null,
+      created_at: t.created_at || t.createdAt || null,
+    }))
+  } catch (err: any) {
+    console.error('Failed to load dashboard', err)
+    if (err?.response?.status === 401) {
+      localStorage.removeItem('token')
+      navigateTo('/login')
+    }
+  }
+}
+
+onMounted(() => {
+  loadDashboard()
+})
 </script>
 
 <style scoped>

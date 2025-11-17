@@ -12,16 +12,17 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
 
 RUN adduser -D -u 1000 appuser
-RUN mkdir -p /workspace/logs && \
+RUN mkdir -p /workspace/logs /workspace/migrations/versions && \
     chown -R appuser:appuser /workspace
 
 COPY pyproject.toml uv.lock README.md ./
 RUN uv pip install --system --no-cache --prerelease=allow .
 
-COPY . .
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
 
 USER appuser
 
 EXPOSE 8000
 
-CMD ["fastapi", "run", "main.py", "--port", "8000", "--proxy-headers"]
+ENTRYPOINT ["./entrypoint.sh"]

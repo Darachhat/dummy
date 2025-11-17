@@ -1,28 +1,16 @@
+<!-- src/pages/payment/start.vue -->
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
-   <!-- Header -->
-<div class="relative flex items-center justify-center w-full max-w-lg mb-8">
-  <button
-    @click="navigateTo('/')"
-    class="absolute left-4 p-2 bg-white rounded-full shadow hover:bg-gray-100 transition"
-  >
-    <ArrowLeft class="w-5 h-5 text-gray-700" />
-  </button>
-  <h2 class="text-xl font-semibold text-gray-800 text-center">Bill Payment</h2>
-</div>
-
-
+  <AppPage title="Bill Payment" back-to="/">
     <!-- Title -->
-    <div class="w-full max-w-lg mb-6 text-center">
+    <div class="w-full mb-6 text-center">
       <h3 class="text-lg font-medium text-gray-700">Choose a Service to Pay</h3>
-      <p class="text-sm text-gray-500 mt-1">Select a service provider to continue</p>
+      <p class="text-sm text-gray-500 mt-1">
+        Select a service provider to continue
+      </p>
     </div>
 
     <!-- Services -->
-    <div
-      v-if="services.length"
-      class="grid grid-cols-1 gap-3 w-full max-w-lg"
-    >
+    <div v-if="services.length" class="grid grid-cols-1 gap-3 w-full">
       <button
         v-for="s in services"
         :key="s.id"
@@ -51,23 +39,19 @@
       <p v-if="loading">Loading services...</p>
       <p v-else>No services available</p>
     </div>
-  </div>
+  </AppPage>
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, ChevronRight } from 'lucide-vue-next'
+import { ChevronRight } from 'lucide-vue-next'
+import AppPage from '~/components/AppPage.vue'
+import { useLogoUrl } from '~/composables/useLogoUrl'
 
 const { $api } = useNuxtApp()
 const services = ref<any[]>([])
 const loading = ref(true)
-const BACKEND_URL = useRuntimeConfig().public.apiBase
 
-const getLogoUrl = (path: string) =>
-  !path
-    ? `${BACKEND_URL}/static/logos/default.svg`
-    : path.startsWith('http')
-    ? path
-    : `${BACKEND_URL}${path}`
+const { getLogoUrl } = useLogoUrl()
 
 onMounted(async () => {
   try {

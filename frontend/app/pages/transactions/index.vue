@@ -1,20 +1,10 @@
+<!-- src/pages/transactions/index.vue (example path) -->
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
-    <!-- Header -->
-    <div class="relative flex items-center justify-center w-full max-w-lg mb-8">
-      <button
-        @click="navigateTo('/')"
-        class="absolute left-4 p-2 bg-white rounded-full shadow hover:bg-gray-100 transition"
-      >
-        <ArrowLeft class="w-5 h-5 text-gray-700" />
-      </button>
-      <h2 class="text-xl font-semibold text-gray-800 text-center">Transaction History</h2>
-    </div>
-
+  <AppPage title="Transaction History" back-to="/">
     <!-- Transaction List -->
     <div
       v-if="transactions.length"
-      class="bg-white w-full max-w-lg rounded-2xl shadow border border-gray-100 divide-y divide-gray-100"
+      class="bg-white w-full rounded-2xl shadow border border-gray-100 divide-y divide-gray-100"
     >
       <div
         v-for="t in transactions"
@@ -71,23 +61,25 @@
         Make a Payment
       </button>
     </div>
-  </div>
+  </AppPage>
 </template>
 
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
+import AppPage from '~/components/AppPage.vue'
 import { formatUserDate } from '~/utils/helpers'
 import { useCurrency } from '~/composables/useCurrency'
+import { useLogoUrl } from '~/composables/useLogoUrl'
 
 const { $api } = useNuxtApp()
 const transactions = ref<any[]>([])
-const config = useRuntimeConfig()
-const BACKEND_URL = config.public.apiBase
+
+const { getLogoUrl } = useLogoUrl()
+const { format } = useCurrency()
 
 onMounted(async () => {
   try {
     const res = await $api('/transactions/')
-    // 👇 Handle both old (array) and new (paginated) shapes safely
     transactions.value = Array.isArray(res) ? res : (res.items ?? [])
   } catch (err) {
     console.error('Failed to load transactions', err)
@@ -95,7 +87,7 @@ onMounted(async () => {
 })
 
 const goDetail = (id: number | string) => {
-  const finalId = (typeof id === 'number' && !Number.isNaN(id)) ? id : Number(id)
+  const finalId = typeof id === 'number' && !Number.isNaN(id) ? id : Number(id)
   if (!Number.isNaN(finalId) && finalId !== 0) {
     navigateTo(`/transactions/${finalId}`)
   } else {
@@ -103,14 +95,6 @@ const goDetail = (id: number | string) => {
   }
 }
 
-const getLogoUrl = (path: string) => {
-  if (!path) return `${BACKEND_URL}/static/logos/default.svg`
-  if (path.startsWith('http')) return path
-  return `${BACKEND_URL}${path}`
-}
-
-const { format } = useCurrency()
-const formatCurrency = (val?: number | string | null, currency = 'USD') => {
-  return format(val, currency)
-}
+const formatCurrency = (val?: number | string | null, currency = 'USD') =>
+  format(val, currency)
 </script>
