@@ -53,6 +53,7 @@ class PaymentConfirmOut(BaseModel):
     total_amount: Optional[Decimal] = None
 
     currency: Optional[str] = None
+    invoice_currency: Optional[str] = None
 
     # Service info
     service: Optional[PaymentServiceInfo] = None

@@ -9,8 +9,8 @@ const props = defineProps<{
   data: RowT[]
   columns: ColumnDef<RowT, any>[] | any
   loading?: boolean
-  page: number
-  totalPages: number
+  page?: number
+  totalPages?: number
   /** UTable onSelect handler */
   onRowSelect?: (e: Event, row: any) => void
   /** Disable pagination buttons while loading */
@@ -84,7 +84,7 @@ function changePage(newPage: number) {
             </slot>
           </div>
 
-          <div class="flex gap-2">
+          <div class="flex gap-2" >
             <UButton
               label="Prev"
               color="neutral"

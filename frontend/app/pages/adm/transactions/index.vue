@@ -96,7 +96,7 @@ const columns: ColumnDef<RowT, any>[] = [
   },
   {
     accessorKey: 'customer_name',
-    header: 'User Name',
+    header: 'Customer',
     cell: ({ getValue, row }) =>
       String(getValue() ?? row.original.user_name ?? '-'),
   },

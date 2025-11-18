@@ -24,6 +24,8 @@ from schemas.account import AccountOut, AccountCreate
 from schemas.transaction import TransactionOut
 from schemas.payment import PaymentConfirmOut
 
+from schemas.admin_transaction import AdminTransactionOut
+
 # Admin-specific schemas
 from schemas.admin_user import (
     AdminUserSummary,
@@ -485,7 +487,7 @@ def create_user_account(
 
 
 # --- Transactions (with filters) ---
-@router.get("/{user_id}/transactions", response_model=List[TransactionOut])
+@router.get("/{user_id}/transactions", response_model=List[AdminTransactionOut])
 def user_transactions(
     user_id: int,
     db: Session = Depends(get_db),
@@ -503,6 +505,8 @@ def user_transactions(
         None, description="Filter by service name"
     ),
 ):
+    # Load user info once (source of truth for user_name / user_phone)
+    user = db.query(User).filter(User.id == user_id).first()
     # base query with eager load for payment->service
     q = (
         db.query(Transaction)
@@ -538,57 +542,91 @@ def user_transactions(
 
     txs = q.order_by(Transaction.created_at).limit(limit).all()
 
-    results: List[TransactionOut] = []
+    out: List[dict] = []
     for t in txs:
         p = getattr(t, "payment", None)
         s = p.service if p and getattr(p, "service", None) else None
 
-        # prefer invoice_amount/currency for display when available
-        display_amount = (
-            p.invoice_amount
-            if p and getattr(p, "invoice_amount", None) is not None
-            else (p.amount if p and getattr(p, "amount", None) is not None else t.amount)
-        )
-        display_currency = (
-            p.invoice_currency
-            if p and getattr(p, "invoice_currency", None)
-            else (
-                p.currency
-                if p and getattr(p, "currency", None)
-                else (t.currency or "USD")
-            )
+        # choose display amount: prefer payment.invoice_amount, then payment.amount, then transaction.amount
+        display_amount_val = None
+        if p and getattr(p, "invoice_amount", None) is not None:
+            display_amount_val = p.invoice_amount
+        elif p and getattr(p, "amount", None) is not None:
+            display_amount_val = p.amount
+        else:
+            display_amount_val = t.amount
+
+        # currency: prefer payment.invoice_currency, then payment.currency, then transaction.currency, else USD
+        invoice_currency = None
+        if p and getattr(p, "invoice_currency", None):
+            invoice_currency = p.invoice_currency
+        elif p and getattr(p, "currency", None):
+            invoice_currency = p.currency
+        else:
+            invoice_currency = t.currency if getattr(t, "currency", None) else None
+
+        display_currency = invoice_currency or (t.currency if getattr(t, "currency", None) else "USD")
+
+        # fee and total_amount: prefer payment values when available
+        fee_val = None
+        if p and getattr(p, "fee", None) is not None:
+            fee_val = p.fee
+        else:
+            fee_val = getattr(t, "fee", None)
+
+        total_val = None
+        if p and getattr(p, "total_amount", None) is not None:
+            total_val = p.total_amount
+        else:
+            total_val = getattr(t, "total_amount", None) or display_amount_val
+
+        # account info
+        account_number = getattr(t, "account_number", None) or (getattr(t, "account", None) and getattr(t.account, "number", None))
+        account_id = getattr(t, "account_id", None)
+
+        # user info: load from users table (primary source). fall back to payment.customer_name only if user missing
+        user_name = user.name if user and getattr(user, "name", None) else (p.customer_name if p and getattr(p, "customer_name", None) else None)
+        user_phone = user.phone if user and getattr(user, "phone", None) else None
+
+        # status: if linked payment has status, prefer it; else t.status if present
+        status_val = (p.status if p and getattr(p, "status", None) else getattr(t, "status", None)) or None
+
+        # created_at: return datetime (Pydantic will handle serialization)
+        created_at_dt = t.created_at if getattr(t, "created_at", None) else None
+
+        # convert Decimal to float safely
+        def to_float(v):
+            try:
+                return float(v) if v is not None else None
+            except Exception:
+                return None
+
+        out.append(
+            {
+                "id": int(t.id) if getattr(t, "id", None) is not None else None,
+                "transaction_id": getattr(t, "transaction_id", None),
+                "direction": getattr(t, "direction", None),
+                "created_at": created_at_dt,
+                "account_number": account_number,
+                "account_id": int(account_id) if account_id is not None else None,
+                "user_name": user_name,
+                "user_phone": user_phone,
+                "reference_number": getattr(t, "reference_number", None) or (p.reference_number if p and getattr(p, "reference_number", None) else None),
+                "description": getattr(t, "description", None),
+                "amount": to_float(display_amount_val),
+                "fee": to_float(fee_val),
+                "total_amount": to_float(total_val),
+                "customer_name": (p.customer_name if p and getattr(p, "customer_name", None) else None),
+                "service_name": (s.name if s else None) if s else (getattr(t, "service_name", None) or None),
+                "service_logo_url": (s.logo_url if s else None) if s else None,
+                "currency": (display_currency or None),
+                "invoice_currency": (invoice_currency or None),
+                "status": status_val,
+            }
         )
 
-        results.append(
-            TransactionOut(
-                id=t.id,
-                transaction_id=t.transaction_id,
-                reference_number=getattr(p, "reference_number", None)
-                if p
-                else getattr(t, "reference_number", None),
-                description=t.description or "",
-                amount=display_amount,
-                fee=(
-                    p.fee
-                    if p and p.fee is not None
-                    else Decimal("0.00")
-                ),
-                total_amount=(
-                    p.total_amount
-                    if p and p.total_amount is not None
-                    else (t.amount or Decimal("0.00"))
-                ),
-                customer_name=(p.customer_name if p else None),
-                service_name=(s.name if s else None),
-                service_logo_url=(s.logo_url if s else None),
-                direction=t.direction,
-                currency=display_currency,
-                created_at=(
-                    t.created_at.isoformat() if t.created_at else None
-                ),
-            )
-        )
-    return results
+    # Pydantic will validate each item according to AdminTransactionOut
+    return out
 
 
 # --- Payments ---
@@ -658,7 +696,7 @@ def user_payments(
                 else p.total_amount
             )
         )
-        display_currency = (p.invoice_currency or p.currency or "USD")
+        display_currency = ( p.currency or "USD")
 
         results.append(
             PaymentConfirmOut(
@@ -672,6 +710,7 @@ def user_payments(
                 fee=p.fee,
                 total_amount=p.total_amount,
                 currency=display_currency,
+                invoice_currency=p.invoice_currency,
                 service={
                     "id": p.service.id if p.service else None,
                     "name": p.service.name if p.service else None,

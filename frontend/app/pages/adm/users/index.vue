@@ -145,8 +145,20 @@ const columns: ColumnDef<RowT, any>[] = [
   { accessorKey: 'name', header: 'Name' },
   { accessorKey: 'phone', header: 'Phone' },
   { accessorKey: 'role', header: 'Role' },
-  { accessorKey: 'created_at', header: 'Created' },
+  { accessorKey: 'created_at', header: 'Created', cell: ({ getValue, row }) =>
+      formatDateLocal(row.original.created_at ?? getValue()), },
 ]
+function parseDate(s?: string | null) {
+  if (!s) return null
+  const d = new Date(String(s))
+  if (isNaN(d.getTime())) return null
+  return d
+}
+function formatDateLocal(s?: string | null) {
+  const d = parseDate(s)
+  if (!d) return '-'
+  return d.toLocaleString(undefined, { hour12: true })
+}
 
 function getActions(user: any) {
   return [
