@@ -5,7 +5,7 @@ WORKDIR /workspace
 RUN apk add --no-cache \
         gcc g++ musl-dev postgresql-dev libffi-dev \
         gdk-pixbuf-dev shared-mime-info gobject-introspection-dev \
-        mesa-dev geos-dev curl bash \
+        mesa-dev geos-dev curl bash sqlite \
     && rm -rf /var/cache/apk/*
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -15,8 +15,8 @@ RUN adduser -D -u 1000 appuser
 RUN mkdir -p /workspace/logs /workspace/migrations/versions && \
     chown -R appuser:appuser /workspace
 
-COPY pyproject.toml uv.lock README.md ./
-RUN uv pip install --system --no-cache --prerelease=allow .
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev
 
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh

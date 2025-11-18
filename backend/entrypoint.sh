@@ -3,31 +3,65 @@ set -e
 
 echo "Starting entrypoint script..."
 
-# Ensure migrations directory exists and is writable
+# Ensure exists and is writable
 mkdir -p /workspace/migrations/versions
 chmod -R 777 /workspace/migrations/versions 2>/dev/null || true
+DB_FILE="/workspace/dummybank.db"
 
-# Auto-generate migration if there are model changes
-echo "Checking for database schema changes..."
-MIGRATION_FILE=$(alembic revision --autogenerate -m "Auto-migration: $(date +%Y%m%d_%H%M%S)" 2>&1 | grep -oP 'Generating \K[^ ]+' | head -1)
-
-if [ -n "$MIGRATION_FILE" ] && [ -f "$MIGRATION_FILE" ]; then
-    echo "New migration generated: $MIGRATION_FILE"
-    echo "Fixing NOT NULL constraints for SQLite compatibility..."
-
-    # Fix NOT NULL columns by adding server_default for new columns
-    # This makes them nullable temporarily or adds defaults
-    sed -i "s/sa.Column('\([^']*\)', \([^,]*\), nullable=False)/sa.Column('\1', \2, nullable=True)/g" "$MIGRATION_FILE"
-
-    echo "Migration file updated to be SQLite compatible"
+# Check if database(only alembic_version)
+if [ -f "$DB_FILE" ]; then
+    TABLE_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'alembic_version';" 2>/dev/null || echo "0")
+    if [ "$TABLE_COUNT" -eq 0 ]; then
+        echo "Found database with no tables (only alembic tracking). This is corrupted. Removing everything..."
+        rm -f "$DB_FILE"
+        rm -f /workspace/migrations/versions/*.py
+        echo "Cleaned up corrupted state."
+    fi
 fi
 
-# Apply all pending migrations
-echo "Applying database migrations..."
-alembic upgrade head
+# Check if any migration files exist
+MIGRATION_COUNT=$(ls -1 /workspace/migrations/versions/*.py 2>/dev/null | wc -l)
 
-echo "Migrations applied successfully!"
+if [ "$MIGRATION_COUNT" -eq 0 ]; then
+    echo "No migration files found. Generating initial migration..."
+    alembic revision --autogenerate -m "Initial schema $(date +%Y%m%d_%H%M%S)"
+    echo "Applying initial migration..."
+    alembic upgrade head
+    echo "Database initialized successfully!"
+else
+    echo "Found $MIGRATION_COUNT migration file(s)."
 
-# Start the application
+    # Check current database state
+    if alembic current 2>/dev/null | grep -q "(head)"; then
+        echo "Database is marked as up to date. Verifying tables exist..."
+        if [ -f "$DB_FILE" ]; then
+            TABLE_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'alembic_version';" 2>/dev/null || echo "0")
+            if [ "$TABLE_COUNT" -eq 0 ]; then
+                echo "ERROR: Database is marked as migrated but has no tables! Regenerating..."
+                rm -f "$DB_FILE"
+                rm -f /workspace/migrations/versions/*.py
+                alembic revision --autogenerate -m "Initial schema $(date +%Y%m%d_%H%M%S)"
+                alembic upgrade head
+                echo "Database recreated successfully!"
+            else
+                echo "Database verification passed. $TABLE_COUNT tables found."
+            fi
+        fi
+    else
+        echo "Applying pending migrations..."
+        alembic upgrade head || {
+            echo "WARNING: Migration failed. Deleting corrupted database and regenerating..."
+            rm -f "$DB_FILE"
+            echo "Regenerating migrations from scratch..."
+            rm -f /workspace/migrations/versions/*.py
+            alembic revision --autogenerate -m "Initial schema $(date +%Y%m%d_%H%M%S)"
+            alembic upgrade head
+            echo "Database recreated successfully!"
+        }
+    fi
+fi
+
+echo "Database setup completed!"
+
 echo "Starting FastAPI application..."
 exec fastapi run main.py --port 8000 --proxy-headers

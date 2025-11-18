@@ -58,7 +58,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def run_migrations():
     """Run Alembic migrations to apply database schema changes."""
     alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head")  # Apply all migrations
+    command.upgrade(alembic_cfg, "head") 
 
 # --- Startup seeding ---
 @app.on_event("startup")
