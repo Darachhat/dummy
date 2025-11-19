@@ -19,6 +19,9 @@
       </slot>
     </div>
 
+    <!-- NEW SLOT: Stepper or anything between header and content -->
+    <slot name="header-after"></slot>
+
     <!-- Page body -->
     <div class="w-full max-w-lg">
       <slot />
@@ -29,7 +32,7 @@
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
 
-const props = defineProps<{
+defineProps<{
   title?: string
   backTo?: string | null
 }>()

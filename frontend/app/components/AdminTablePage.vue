@@ -74,33 +74,6 @@ function changePage(newPage: number) {
           </slot>
         </template>
       </UTable>
-
-      <template #footer>
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between p-3 text-sm text-gray-600 gap-3">
-          <!-- summary slot (override if needed) -->
-          <div>
-            <slot name="summary">
-              Page {{ page }} / {{ totalPages }}
-            </slot>
-          </div>
-
-          <div class="flex gap-2" >
-            <UButton
-              label="Prev"
-              color="neutral"
-              variant="outline"
-              :disabled="page <= 1 || loading || disablePagination"
-              @click="changePage(page - 1)"
-            />
-            <UButton
-              label="Next"
-              class="btn-dark"
-              :disabled="page >= totalPages || loading || disablePagination"
-              @click="changePage(page + 1)"
-            />
-          </div>
-        </div>
-      </template>
     </UCard>
   </div>
 </template>

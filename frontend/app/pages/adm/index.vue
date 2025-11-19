@@ -24,11 +24,9 @@ const stats = reactive({
   transactions: 0,
 })
 
-// --- Latest payments table ---
 const latestPayments = ref<any[]>([])
 const loadingPayments = ref(false)
 
-// Simple date formatter (MM/DD/YYYY HH:mm)
 function formatDateLocal(s?: string | null): string {
   if (!s) return '-'
   const d = new Date(s)

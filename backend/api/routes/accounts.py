@@ -90,6 +90,7 @@ def account_transactions(
     result = [
         {
             "id": t.id,
+            'transaction_id': t.transaction_id,
             "reference_number": t.reference_number,
             "description": t.description or "",
             "amount": float(t.amount),
@@ -132,6 +133,7 @@ def get_transaction_detail(
 
     return {
         "id": tx.id,
+        "transaction_id": tx.transaction_id,
         "reference_number": tx.reference_number,
         "description": tx.description or "",
         "amount": float(tx.amount),

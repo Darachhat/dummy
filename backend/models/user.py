@@ -18,7 +18,7 @@ class User(Base):
     accounts = relationship("Account", back_populates="user")
 
     def __acl__(self):
-        """Access Control List for RBAC"""
+        """Access Control List"""
         return [
             ("Allow", f"user:{self.id}", "view_self"),
             ("Allow", "role:admin", "view_user"),

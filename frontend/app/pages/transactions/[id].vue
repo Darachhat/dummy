@@ -79,6 +79,11 @@
           <span class="text-gray-500">Date</span>
           <span class="font-medium">{{ formatDate(transaction.created_at) }}</span>
         </div>
+
+             <div class="flex justify-between">
+          <span class="text-gray-500">Transaction ID</span>
+          <span class="font-medium text-right">{{ transaction.transaction_id || '—' }}</span>
+        </div>
       </div>
 
       <div class="border-t border-gray-200 my-3"></div>

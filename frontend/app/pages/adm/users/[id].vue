@@ -7,7 +7,24 @@
         <NuxtLink to="/adm/users" class="px-3 py-1 border rounded-xl hover:bg-gray-50">Back</NuxtLink>
         <h2 class="text-2xl font-bold text-gray-800">{{ form.name }}</h2>
       </div>
-      <UButton class="btn-dark" icon="i-lucide-save" :loading="saving" @click="saveUser">Save</UButton>
+
+      <!-- Right actions: Add Account + Save -->
+      <div class="flex items-center gap-3">
+        <!-- Add Account button (opens the Add Account modal) -->
+        <UButton
+          type="button"
+          variant="outline"
+          color="neutral"
+          icon="i-lucide-plus"
+          @click="showAddAccount = true"
+          title="Add account for this user"
+        >
+          Add Account
+        </UButton>
+
+        <!-- Save user -->
+        <UButton class="btn-dark" icon="i-lucide-save" :loading="saving" :disabled="!isPinValid" @click="saveUser">Save</UButton>
+      </div>
     </div>
 
     <!-- Alerts -->
@@ -41,7 +58,7 @@
           />
         </UFormField>
 
-        <UFormField label="New Password (optional)">
+        <UFormField label="New Password">
           <div class="relative">
             <UInput
               :type="showPwd ? 'text' : 'password'"
@@ -57,12 +74,37 @@
               @click="showPwd = !showPwd"
             />
           </div>
+           <div
+            class="text-xs mt-1"
+            :class="form.pin === '' || isPinValid ? 'text-gray-500' : 'text-red-600'"
+          >
+            {{ form.password === '' ? 'Leave blank to keep current password' : 'Changing password will log the user out of all sessions' }}
+          </div>
+        </UFormField>
+
+        <!-- Pincode: minimal masked 4-digit input -->
+        <UFormField label="Pincode (4 digits)">
+          <UInput
+            type="password"
+            v-model="form.pin"
+            inputmode="numeric"
+            maxlength="4"
+            color="neutral"
+            placeholder="Enter 4-digit PIN"
+            @input="digitsPin"
+          />
+          <div
+            class="text-xs mt-1"
+            :class="form.pin === '' || isPinValid ? 'text-gray-500' : 'text-red-600'"
+          >
+            {{ form.pin === '' ? 'Optional' : (isPinValid ? 'Valid PIN' : 'PIN must be 4 digits') }}
+          </div>
         </UFormField>
       </div>
 
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton class="btn-dark" :loading="saving" @click="saveUser">Save Changes</UButton>
+          <UButton class="btn-dark" :loading="saving" :disabled="!isPinValid" @click="saveUser">Save Changes</UButton>
         </div>
       </template>
     </UCard>
@@ -253,7 +295,7 @@
     </UModal>
 
     <!-- ACCOUNT DETAILS MODAL -->
-    <UModal v-model:open="showAccountDetail" :title="`Account — ${accountForm.name ?? ''}`" class="max-w-2xl">
+    <UModal v-model:open="showAccountDetail" :title="`Account — ${accountForm.name ?? ''}`" class="items-center max-w-[400px]">
       <template #body>
         <div class="space-y-4">
           <UFormField label="Name" required>
@@ -264,7 +306,7 @@
             <UInput color="neutral" v-model.trim="accountForm.number" />
           </UFormField>
 
-          <div class="grid sm:grid-cols-2 gap-4">
+          <div class="grid sm:grid-cols-2  gap-4">
             <UFormField label="Currency" required>
               <USelect color="neutral" v-model="accountForm.currency" :items="currencyOptions" />
             </UFormField>
@@ -273,17 +315,11 @@
           <UFormField label="Balance">
             <UInput color="neutral" v-model.number="accountForm.balance" inputmode="decimal" />
           </UFormField>
-
-          <UFormField label="Raw">
-            <div class="mt-1 p-3 bg-gray-50 rounded-md text-xs text-gray-700 break-words max-h-36 overflow-auto">
-              <pre class="whitespace-pre-wrap text-xs m-0">{{ JSON.stringify(selectedAccount ?? {}, null, 2) }}</pre>
-            </div>
-          </UFormField>
         </div>
       </template>
 
       <template #footer>
-        <div class="flex justify-between items-center w-full">
+        <div class="flex justify-between gap-15 items-center w-full">
           <div class="text-sm text-gray-600">ID: {{ selectedAccount?.id ?? '-' }}</div>
           <div class="flex gap-2">
             <UButton variant="outline" color="neutral" @click="closeAccountModal">Cancel</UButton>
@@ -375,9 +411,6 @@
             <div class="flex items-center gap-2">
               <div class="truncate text-slate-700">{{ selectedTransaction?.account_number ?? '-' }}</div>
               <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-copy" :disabled="!selectedTransaction?.account_number" @click="copyField(selectedTransaction?.account_number, 'Account Number')" />
-              <UButton size="sm" variant="outline" color="neutral" :disabled="!selectedTransaction?.account_number" @click="openAccountFromTransaction(selectedTransaction)">
-                <i class="i-lucide-external-link mr-2"></i> Open Account
-              </UButton>
             </div>
           </div>
 
@@ -406,7 +439,7 @@
       </template>
     </UModal>
 
-    <!-- PAYMENT DETAIL MODAL (UPDATED) -->
+    <!-- PAYMENT DETAIL MODAL -->
     <UModal v-model:open="showPaymentDetail" title="Payment Details" class="max-w-2xl">
       <template #header>
         <div class="flex items-center justify-between w-full">
@@ -416,7 +449,6 @@
           </div>
 
           <div class="flex items-center gap-3">
-            <UBadge :label="selectedPayment?.status ?? 'unknown'" :color="statusVariant" />
             <div v-if="selectedPayment?.service_name" class="flex items-center gap-2">
               <img
                 v-if="selectedPayment?.service_logo_url"
@@ -498,14 +530,6 @@
           <div class="flex gap-2">
             <UButton variant="outline" color="neutral" @click="copyField(selectedPayment?.reference_number, 'Reference')" :disabled="!selectedPayment?.reference_number">
               <i class="i-lucide-copy mr-2"></i> Copy Reference
-            </UButton>
-
-            <UButton variant="outline" color="neutral" @click="openTransactionModal(selectedPayment?.transaction_id ?? selectedPayment?.id)" :disabled="!(selectedPayment?.transaction_id || selectedPayment?.id)">
-              <i class="i-lucide-external-link mr-2"></i> Open Transaction
-            </UButton>
-
-            <UButton variant="outline" color="neutral" @click="openAddAccountFromPayment" :disabled="!selectedPayment">
-              <i class="i-lucide-plus mr-2"></i> Add Account
             </UButton>
           </div>
 
@@ -595,7 +619,7 @@ function getLogoUrl(path?: string) {
 
 /* ---------- State ---------- */
 const original = ref<any>(null)
-const form = reactive({ name: '', phone: '', role: 'user', password: '' })
+const form = reactive({ name: '', phone: '', role: 'user', password: '', pin: '' })
 const touched = ref(false)
 const showPwd = ref(false)
 const saving = ref(false)
@@ -677,12 +701,12 @@ const payPending = ref(false)
 const payPage = ref(1)
 const payPageSize = 10
 const payTotal = ref(0)
-const payQ = ref('')
+const payQ = ref('')  
 const showPaymentDetail = ref(false)
 const selectedPayment = ref<any | null>(null)
 const paymentColumns: ColumnDef<Record<string, any>, any>[] = [
-  { accessorKey: 'id', header: 'ID' },
   { accessorKey: 'customer_name', header: 'Customer' },
+  { accessorKey: 'id', header: 'Transaction ID' },
   { accessorKey: 'service_name', header: 'Service' },
   {
     accessorKey: 'status', header: 'Status', cell: ({ getValue }) => {
@@ -730,7 +754,7 @@ const payTotalPages = computed(() => Math.max(1, Math.ceil(payTotal.value / payP
 /* ---------- Helpers & normalizers ---------- */
 function resetForm() {
   if (!original.value) return
-  Object.assign(form, { name: original.value.name || '', phone: original.value.phone || '', role: original.value.role || 'user', password: '' })
+  Object.assign(form, { name: original.value.name || '', phone: original.value.phone || '', role: original.value.role || 'user', password: '', pin: '' })
   touched.value = false
 }
 
@@ -881,15 +905,22 @@ async function saveUser() {
     touched.value = true
     return
   }
+  // PIN client-side validation: only allow save if empty or exactly 4 digits
+  if (form.pin && !isPinValid.value) {
+    errorMsg.value = 'PIN must be exactly 4 numeric digits'
+    return
+  }
   saving.value = true
   try {
     const payload: any = { name: form.name.trim(), phone: form.phone.trim(), role: form.role }
     if (form.password) payload.password = form.password.trim()
+    // only include pin if set (backend treats absence differently)
+    if (form.pin && form.pin.trim() !== '') payload.pin = form.pin.trim()
     await $api(`/adm/users/${id.value}`, { method: 'PUT', body: payload })
     successMsg.value = 'User updated successfully'
     await loadUser()
-  } catch {
-    errorMsg.value = 'Update failed'
+  } catch (e: any) {
+    errorMsg.value = e?.data?.detail || 'Update failed'
   } finally { saving.value = false }
 }
 
@@ -1089,8 +1120,8 @@ function onTransactionRowSelect(e: Event, row: any) {
 function onPaymentRowSelect(e: Event, row: any) {
   const target = e.target as HTMLElement
   if (target.closest('button') || target.closest('a')) return
-  const txId = row?.original?.transaction_id ?? row?.original?.id
-  if (txId) openTransactionModal(txId)
+  const paymentId = row?.original?.transaction_id ?? row?.original?.id
+  if (paymentId) openPaymentModal(paymentId)
   else {
     selectedPayment.value = row.original
     showPaymentDetail.value = true
@@ -1133,6 +1164,16 @@ async function copyField(text?: string | null, label = 'Value') {
     toast.add({ title: `Failed to copy ${label}`, color: 'error' })
   }
 }
+
+/* ---------- PIN helper & validation ---------- */
+function digitsPin(e: any) {
+  const v = e?.target?.value ?? ''
+  form.pin = String(v).replace(/\D/g, '').slice(0, 4)
+}
+const isPinValid = computed(() => {
+  if (!form.pin || form.pin === '') return true
+  return /^\d{4}$/.test(String(form.pin))
+})
 
 /* ---------- Init ---------- */
 onMounted(async () => {

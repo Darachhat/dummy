@@ -47,7 +47,7 @@ def list_transactions(
                 reference_number=p.reference_number if p else t.reference_number,
                 description=t.description,
                 amount=p.total_amount if p and p.total_amount is not None else t.amount,
-                currency=p.invoice_currency or p.currency if p else t.currency,
+                currency= p.currency if p else t.currency,
                 direction=t.direction,
                 created_at=t.created_at,
                 service_name=s.name if s else None,

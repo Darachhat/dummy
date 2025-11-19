@@ -167,7 +167,6 @@ def get_user(
                 {
                     "id": t.id,
                     "reference_number": getattr(t, "reference_number", None),
-                    # Prefer payment.invoice_amount (original invoice) when present, otherwise transaction amount
                     "amount": float(
                         (
                             t.payment.invoice_amount
@@ -178,19 +177,7 @@ def get_user(
                     ),
                     # currency: prefer payment.invoice_currency, then payment.currency, then transaction currency, fallback USD
                     "currency": (
-                        (
-                            t.payment.invoice_currency
-                            if getattr(t, "payment", None)
-                            and getattr(t.payment, "invoice_currency", None)
-                            else None
-                        )
-                        or (
-                            t.payment.currency
-                            if getattr(t, "payment", None)
-                            and getattr(t.payment, "currency", None)
-                            else None
-                        )
-                        or (t.currency if getattr(t, "currency", None) else "USD")
+                        (t.currency if getattr(t, "currency", None) else "USD")
                     ),
                     "direction": t.direction,
                     "description": t.description or "",
@@ -270,8 +257,7 @@ def get_user(
                     "total_amount": float(p.total_amount)
                     if p.total_amount is not None
                     else None,
-                    # currency: prefer invoice_currency (belongs to invoice), else payment.currency
-                    "currency": (p.invoice_currency or p.currency or "USD"),
+                    "currency": ( p.currency or "USD"),
                     "status": p.status,
                     "service_name": p.service.name if p.service else None,
                     "transaction_id": getattr(p.transaction, "transaction_id", None),
@@ -314,6 +300,18 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
             status_code=400, detail="User with this phone number already exists"
         )
 
+    pin_raw = getattr(user_data, "pin", None)
+    if pin_raw is not None and str(pin_raw).strip() == "":
+        pin_raw = None
+
+    if pin_raw is not None:
+        pin_str = str(pin_raw).strip()
+        if (not pin_str.isdigit()) or (len(pin_str) != 4):
+            raise HTTPException(status_code=400, detail="PIN must be exactly 4 numeric digits")
+        pin_hash_val = hash_password(pin_str)
+    else:
+        pin_hash_val = hash_password("1234")
+
     new_user = User(
         name=user_data.name,
         phone=user_data.phone,
@@ -325,6 +323,7 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     return new_user
+
 
 
 # --- Update user info / password / PIN ---
@@ -347,12 +346,17 @@ def update_user(
         user.role = payload["role"]
     if "password" in payload and payload["password"]:
         user.password_hash = hash_password(payload["password"])
-    if "pin" in payload and payload["pin"]:
-        user.pin_hash = hash_password(payload["pin"])
+
+    if "pin" in payload and payload["pin"] is not None and str(payload["pin"]).strip() != "":
+        pin_candidate = str(payload["pin"]).strip()
+        if (not pin_candidate.isdigit()) or (len(pin_candidate) != 4):
+            raise HTTPException(status_code=400, detail="PIN must be exactly 4 numeric digits")
+        user.pin_hash = hash_password(pin_candidate)
 
     db.commit()
     db.refresh(user)
     return user
+
 
 
 # --- Delete user ---
@@ -565,7 +569,7 @@ def user_transactions(
         else:
             invoice_currency = t.currency if getattr(t, "currency", None) else None
 
-        display_currency = invoice_currency or (t.currency if getattr(t, "currency", None) else "USD")
+        display_currency = ( p.currency or "USD")
 
         # fee and total_amount: prefer payment values when available
         fee_val = None
@@ -619,7 +623,7 @@ def user_transactions(
                 "customer_name": (p.customer_name if p and getattr(p, "customer_name", None) else None),
                 "service_name": (s.name if s else None) if s else (getattr(t, "service_name", None) or None),
                 "service_logo_url": (s.logo_url if s else None) if s else None,
-                "currency": (display_currency or None),
+                "currency": display_currency,
                 "invoice_currency": (invoice_currency or None),
                 "status": status_val,
             }
