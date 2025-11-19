@@ -27,6 +27,10 @@ from models.account import Account
 from models.service import Service
 from models.transaction import Transaction
 from models.payment import Payment
+import os
+import pathlib
+import traceback
+
 
 
 app = FastAPI(title="Dummy Bank Backend")
@@ -56,9 +60,21 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # --- Run Migrations ---
 def run_migrations():
-    """Run Alembic migrations to apply database schema changes."""
-    alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head") 
+    try:
+        here = pathlib.Path(__file__).parent.resolve()
+        alembic_ini_path = here / "alembic.ini"
+        if not alembic_ini_path.exists():
+            alembic_ini_path = here.parent / "alembic.ini"
+
+        if not alembic_ini_path.exists():
+            raise FileNotFoundError(f"alembic.ini not found at {alembic_ini_path}")
+
+        alembic_cfg = Config(str(alembic_ini_path))
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+        command.upgrade(alembic_cfg, "head")
+    except Exception:
+        logging.error("Error while running alembic migrations:\n" + traceback.format_exc())
+        raise
 
 # --- Startup seeding ---
 @app.on_event("startup")
@@ -70,6 +86,14 @@ def seed_data():
     #     return
     
     logging.warning(f"USE_MOCK_OSP = {settings.USE_MOCK_OSP}")
+
+    try:
+        logging.info("Running alembic migrations (upgrade head)...")
+        run_migrations()
+        logging.info("Alembic migrations applied.")
+    except Exception as e:
+        logging.error(f"Failed to run migrations: {e}")
+        
     db = SessionLocal()
     try:
         user = db.query(User).filter_by(phone="069382165").first()
