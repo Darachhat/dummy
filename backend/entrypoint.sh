@@ -24,15 +24,15 @@ MIGRATION_COUNT=$(ls -1 /workspace/migrations/versions/*.py 2>/dev/null | wc -l)
 
 if [ "$MIGRATION_COUNT" -eq 0 ]; then
     echo "No migration files found. Generating initial migration..."
-    alembic revision --autogenerate -m "Initial schema $(date +%Y%m%d_%H%M%S)"
+    uv run alembic revision --autogenerate -m "Initial schema $(date +%Y%m%d_%H%M%S)"
     echo "Applying initial migration..."
-    alembic upgrade head
+    uv run alembic upgrade head
     echo "Database initialized successfully!"
 else
     echo "Found $MIGRATION_COUNT migration file(s)."
 
     # Check current database state
-    if alembic current 2>/dev/null | grep -q "(head)"; then
+    if uv run alembic current 2>/dev/null | grep -q "(head)"; then
         echo "Database is marked as up to date. Verifying tables exist..."
         if [ -f "$DB_FILE" ]; then
             TABLE_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'alembic_version';" 2>/dev/null || echo "0")
@@ -40,8 +40,8 @@ else
                 echo "ERROR: Database is marked as migrated but has no tables! Regenerating..."
                 rm -f "$DB_FILE"
                 rm -f /workspace/migrations/versions/*.py
-                alembic revision --autogenerate -m "Initial schema $(date +%Y%m%d_%H%M%S)"
-                alembic upgrade head
+                uv run alembic revision --autogenerate -m "Initial schema $(date +%Y%m%d_%H%M%S)"
+                uv run alembic upgrade head
                 echo "Database recreated successfully!"
             else
                 echo "Database verification passed. $TABLE_COUNT tables found."
@@ -49,13 +49,13 @@ else
         fi
     else
         echo "Applying pending migrations..."
-        alembic upgrade head || {
+        uv run alembic upgrade head || {
             echo "WARNING: Migration failed. Deleting corrupted database and regenerating..."
             rm -f "$DB_FILE"
             echo "Regenerating migrations from scratch..."
             rm -f /workspace/migrations/versions/*.py
-            alembic revision --autogenerate -m "Initial schema $(date +%Y%m%d_%H%M%S)"
-            alembic upgrade head
+            uv run alembic revision --autogenerate -m "Initial schema $(date +%Y%m%d_%H%M%S)"
+            uv run alembic upgrade head
             echo "Database recreated successfully!"
         }
     fi
@@ -64,4 +64,4 @@ fi
 echo "Database setup completed!"
 
 echo "Starting FastAPI application..."
-exec fastapi run main.py --port 8000 --proxy-headers
+exec uv run fastapi run main.py --port 8000 --proxy-headers

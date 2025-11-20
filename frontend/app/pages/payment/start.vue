@@ -43,7 +43,6 @@
 </template>
 
 <script setup lang="ts">
-import PaymentStepper from '~/components/PaymentStepper.vue'
 import { ChevronRight } from 'lucide-vue-next'
 import AppPage from '~/components/AppPage.vue'
 import { useLogoUrl } from '~/composables/useLogoUrl'

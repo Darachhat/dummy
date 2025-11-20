@@ -13,7 +13,12 @@ RUN mkdir -p /workspace/logs /workspace/migrations/versions && \
     chown -R appuser:appuser /workspace
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --no-dev
+
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+
+RUN uv sync --frozen --no-dev && \
+    chown -R appuser:appuser /workspace/.venv
 
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
