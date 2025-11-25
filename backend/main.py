@@ -1,9 +1,10 @@
 #backend/main.py
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from decimal import Decimal
-import logging
+from alembic.script import ScriptDirectory
 
 from core.config import settings
 from core.security import hash_password
@@ -71,6 +72,14 @@ def run_migrations():
 
         alembic_cfg = Config(str(alembic_ini_path))
         alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+        # Check for multiple heads and merge if needed
+        script  = ScriptDirectory.from_config(alembic_cfg)
+        heads   = script.get_heads()
+        if len(heads) > 1:
+            logging.warning(f"Multiple heads detected: {heads}. Merging...")
+            command.merge(alembic_cfg, "heads", message="Auto-merge multiple heads")
+
         command.upgrade(alembic_cfg, "head")
     except Exception:
         logging.error("Error while running alembic migrations:\n" + traceback.format_exc())

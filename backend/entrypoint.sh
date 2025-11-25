@@ -49,6 +49,12 @@ else
         fi
     else
         echo "Applying pending migrations..."
+        # Check for multiple heads and merge if needed
+        HEAD_COUNT=$(uv run alembic heads 2>/dev/null | wc -l)
+        if [ "$HEAD_COUNT" -gt 1 ]; then
+            echo "Multiple heads detected ($HEAD_COUNT). Merging..."
+            uv run alembic merge heads -m "Merge multiple heads $(date +%Y%m%d_%H%M%S)"
+        fi
         uv run alembic upgrade head || {
             echo "WARNING: Migration failed. Deleting corrupted database and regenerating..."
             rm -f "$DB_FILE"
