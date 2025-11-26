@@ -65,15 +65,20 @@
       </div>
 
       <!-- Desktop header -->
-      <div class="hidden md:flex justify-between items-center mb-8">
+      <div class="hidden md:flex justify-center items-center mb-8">
         <h2 class="text-2xl font-bold text-gray-800 capitalize">
           {{ currentPageTitle }}
         </h2>
       </div>
+      <div v-if="loadingDashboard" class="w-full max-w-full p-12 bg-white rounded-xl shadow text-center">
+  <LoadingSpinner />
+  <div class="mt-3 text-gray-600">Loading dashboard…</div>
+</div>
+
 
       <!-- Account Summary (Only for Home page) -->
       <div
-        v-if="route.path === '/'"
+        v-else="route.path === '/'"
         class="flex flex-col md:flex-row gap-6 mb-10"
       >
         <div class="bg-white rounded-xl shadow p-6 flex-1 text-center md:text-left">
@@ -200,6 +205,8 @@ import { LogOut, Menu, X, Plus } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { useCurrency } from '~/composables/useCurrency'
 import { useMediaQuery } from '@vueuse/core'
+import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
+
 
 const { $api } = useNuxtApp()
 const { logout } = useAuth()
@@ -216,6 +223,8 @@ const showActions = ref(false)
 
 const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
+
+const loadingDashboard = ref(true)
 
 // Responsive: desktop vs mobile
 const isDesktop = useMediaQuery('(min-width: 768px)')
@@ -291,6 +300,7 @@ const formatDate = (isoString?: string) => {
 }
 
 async function loadDashboard() {
+  loadingDashboard.value = true
   const storedToken = localStorage.getItem('token')
   if (!storedToken) {
     console.warn('No token found, redirecting to login')
@@ -354,6 +364,8 @@ async function loadDashboard() {
       localStorage.removeItem('token')
       navigateTo('/login')
     }
+  } finally {
+    loadingDashboard.value = false
   }
 }
 

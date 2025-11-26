@@ -1,6 +1,7 @@
 <!-- components/AppPage.vue -->
 <template>
   <div class="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
+     <LoadingOverlay />
     <!-- Header -->
     <div class="relative flex items-center justify-center w-full max-w-lg mb-8">
       <button
@@ -31,6 +32,7 @@
 
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
+import LoadingOverlay from '~/components/LoadingOverlay.vue'
 
 defineProps<{
   title?: string

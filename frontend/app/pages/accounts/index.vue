@@ -47,7 +47,10 @@
         <ArrowLeft class="w-8 h-8 text-gray-400 rotate-180" />
       </div>
 
-      <p v-if="loading" class="text-gray-600">Loading accounts...</p>
+      <div v-if="loading" class="flex flex-col items-center mt-8">
+  <div class="bg-white rounded-full p-4"><LoadingSpinner /></div>
+  <p class="text-gray-600 mt-3">Loading accounts…</p>
+</div>
       <p v-else class="text-gray-600">No accounts found.</p>
 
       <button
@@ -63,6 +66,7 @@
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
 import { useCurrency } from '~/composables/useCurrency'
+import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
 
 
 const { $api } = useNuxtApp()

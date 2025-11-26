@@ -4,6 +4,8 @@ definePageMeta({ layout: 'admin' })
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMyToast } from '~/composables/useMyToast'
+import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
+
 
 const route = useRoute()
 const router = useRouter()
@@ -192,9 +194,10 @@ onMounted(loadService)
 
     <!-- Content -->
     <UCard class="shadow-sm border rounded-2xl overflow-hidden">
-      <div v-if="loading" class="p-8 text-center text-gray-500">
-        Loading service…
-      </div>
+     <div v-if="loading" class="p-8 text-center text-gray-500">
+    <LoadingSpinner />
+    <div class="mt-3">Loading service…</div>
+  </div>
 
       <div
         v-else-if="service"

@@ -5,6 +5,8 @@ import { ref, onMounted, computed, h, resolveComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMyToast } from '~/composables/useMyToast'
 import { useCurrency } from '~/composables/useCurrency'
+import LoadingSpinner from '~/components/ui/LoadingSpinner.vue'
+
 
 const route = useRoute()
 const router = useRouter()
@@ -131,7 +133,10 @@ onMounted(loadPayment)
     </div>
 
     <UCard class="border rounded-2xl p-4">
-      <div v-if="loading" class="text-gray-500">Loading...</div>
+        <div v-if="loading" class="p-6 flex items-center justify-center text-gray-500">
+    <LoadingSpinner />
+    <span class="ml-3">Loading transactions…</span>
+  </div>
 
       <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>

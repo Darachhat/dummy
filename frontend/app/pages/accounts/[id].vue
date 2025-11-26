@@ -11,6 +11,11 @@
       <h2 class="text-xl font-semibold text-gray-800 text-center">Account Details</h2>
     </div>
 
+    <div v-if="loading" class="p-8 text-center text-gray-500">
+  <LoadingSpinner />
+  <div class="mt-3">Loading account details…</div>
+</div>
+
     <!-- Account Info -->
     <div
       v-if="account"
@@ -34,6 +39,11 @@
           Timezone: {{ Intl.DateTimeFormat().resolvedOptions().timeZone }}
         </p>
       </div>
+
+      <div v-if="loading" class="p-8 text-center text-gray-500">
+  <LoadingSpinner />
+  <div class="mt-3">Loading transaction details…</div>
+</div>
 
       <!-- Safe check for array -->
       <div
@@ -96,8 +106,10 @@ const account = ref<any>(null)
 const transactions = ref<any[]>([])
 const config = useRuntimeConfig()
 const BACKEND_URL = config.public.apiBase
+const loading = ref(true)
 
 onMounted(async () => {
+  loading.value = true
   try {
     const rawId = route.params.id
     const accId = Number(rawId)
@@ -136,6 +148,8 @@ onMounted(async () => {
   } catch (err) {
     console.error('Failed to load account details:', err)
     navigateTo('/accounts')
+  } finally {
+    loading.value = false
   }
 })
 
