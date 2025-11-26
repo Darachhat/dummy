@@ -1,29 +1,51 @@
 # backend/core/config.py
 from decimal import Decimal
+from pathlib import Path
 from pydantic_settings import BaseSettings
-from decouple import config
+from pydantic import Field, validator
 
 class Settings(BaseSettings):
-    USE_MOCK_OSP                    : bool = config('USE_MOCK_OSP', cast=lambda x: x.lower() == 'true', default=False)
+    # Mock flag
+    USE_MOCK_OSP: bool = Field(False)
 
-    DATABASE_URL                    : str = config('DATABASE_URL', cast=str)
-    SECRET_KEY                      : str = config('SECRET_KEY', cast=str)
-    DEBUG                           : bool = config('DEBUG', cast=lambda x: x.lower() == 'true', default=False)
-    ACCESS_TOKEN_EXPIRE_MINUTES     : int = config('ACCESS_TOKEN_EXPIRE_MINUTES', cast=int)
-    CORS_ORIGINS                    : str = config('CORS_ORIGINS', cast=str)
+    # Core
+    DATABASE_URL: str
+    SECRET_KEY: str
+    DEBUG: bool = Field(False)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
+    CORS_ORIGINS: str = ""
 
-    OSP_BASE_URL                    : str = config('OSP_BASE_URL', cast=str)
-    OSP_AUTH                        : str = config('OSP_AUTH', cast=str)
-    OSP_PARTNER                     : str = config('OSP_PARTNER', cast=str, default='')
-    OSP_TIMEOUT                     : int = config('OSP_TIMEOUT', cast=int, default=30)
+    # OSP
+    OSP_BASE_URL: str
+    OSP_AUTH: str
+    OSP_PARTNER: str = ""
+    OSP_TIMEOUT: int = 30
 
-    FEE_AMOUNT                      : Decimal = config('FEE_AMOUNT', cast=Decimal)
-    USD_TO_KHR_RATE                 : Decimal = config('USD_TO_KHR_RATE', cast=Decimal)
+    # Money
+    FEE_AMOUNT: Decimal
+    USD_TO_KHR_RATE: Decimal
 
-    API_VERSION: str = config('API_VERSION', cast=str)
-    API_TITLE: str = config('API_TITLE', cast=str)
-    API_DESCRIPTION: str = config('API_DESCRIPTION', cast=str)
-    API_CONTACT_NAME: str = config('API_CONTACT_NAME', cast=str)
-    API_CONTACT_EMAIL: str = config('API_CONTACT_EMAIL', cast=str)
+    # API metadata
+    API_VERSION: str = "v1.0.0"
+    API_TITLE: str = "Dummy Bank API"
+    API_DESCRIPTION: str = "API for Dummy Bank Application"
+    API_CONTACT_NAME: str = "Dummy Bank Support Team"
+    API_CONTACT_EMAIL: str = "dummybank@dev.com"
+
+    # Logging
+    SINGLE_PROCESS: bool = Field(False)
+    LOG_LEVEL: str = Field("INFO")
+    LOG_PATH: str = Field("/workspace/logs")
+
+    @validator("LOG_PATH")
+    def ensure_log_path(cls, v):
+        Path(v).mkdir(parents=True, exist_ok=True)
+        return v
+
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": False
+    }
+
 
 settings = Settings()

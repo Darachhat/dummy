@@ -1,4 +1,8 @@
 #backend/main.py
+from core.logging import setup_logging
+
+setup_logging()
+
 import logging
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,6 +43,7 @@ TITLE = settings.API_TITLE
 DESCRIPTION = settings.API_DESCRIPTION
 CONTACT_NAME = settings.API_CONTACT_NAME
 CONTACT_EMAIL = settings.API_CONTACT_EMAIL
+
 
 app = FastAPI(
     title=TITLE,

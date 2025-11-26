@@ -10,3 +10,4 @@ alembic
 python-jose[cryptography]>=3.3.0
 httpx
 fastapi-permissions
+loguru
