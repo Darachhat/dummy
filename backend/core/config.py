@@ -20,4 +20,10 @@ class Settings(BaseSettings):
     FEE_AMOUNT                      : Decimal = config('FEE_AMOUNT', cast=Decimal)
     USD_TO_KHR_RATE                 : Decimal = config('USD_TO_KHR_RATE', cast=Decimal)
 
+    API_VERSION: str = config('API_VERSION', cast=str)
+    API_TITLE: str = config('API_TITLE', cast=str)
+    API_DESCRIPTION: str = config('API_DESCRIPTION', cast=str)
+    API_CONTACT_NAME: str = config('API_CONTACT_NAME', cast=str)
+    API_CONTACT_EMAIL: str = config('API_CONTACT_EMAIL', cast=str)
+
 settings = Settings()

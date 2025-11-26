@@ -1,7 +1,7 @@
 <!-- frontend/app/pages/adm/users/index.vue -->
 <template>
   <AdminTablePage
-    title="User Management"
+    title="User"
     :data="users"
     :columns="columns"
     :loading="pending"

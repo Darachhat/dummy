@@ -29,8 +29,8 @@ async function load() {
     transactions.value = raw
     total.value = res.total ?? transactions.value.length
   } catch (err) {
-    console.error('Failed to load transactions:', err)
-    toast.add({ title: 'Failed to load transactions', color: 'error' })
+    console.error('Failed to load transactions log:', err)
+    toast.add({ title: 'Failed to load transactions log', color: 'error' })
     transactions.value = []
     total.value = 0
   } finally {
@@ -39,10 +39,10 @@ async function load() {
 }
 
 async function removeTx(id: number) {
-  if (!confirm('Delete this transaction?')) return
+  if (!confirm('Delete this transaction log?')) return
   try {
     await $api(`/adm/transactions/${id}`, { method: 'DELETE' })
-    toast.add({ title: 'Transaction deleted', color: 'success' })
+    toast.add({ title: 'Transaction log deleted', color: 'success' })
     await load()
   } catch (err) {
     console.error('Delete failed', err)
@@ -57,7 +57,7 @@ function go(p: number) {
 
 const adminTitle = useAdminTitle()
 onMounted(() => {
-  adminTitle.value = 'Transactions'
+  adminTitle.value = 'Transactions Log'
   load()
 })
 
@@ -181,7 +181,7 @@ function onRowSelect(e: Event, row: any) {
 
 <template>
   <AdminTablePage
-    title="Transaction Management"
+    title="Transaction Log"
     :data="transactions"
     :columns="columns"
     :loading="pending"
@@ -195,13 +195,13 @@ function onRowSelect(e: Event, row: any) {
 
     <template #loading>
       <div class="p-6 text-center text-gray-500">
-        Loading transactions…
+        Loading transactions log…
       </div>
     </template>
 
     <template #empty>
       <div class="p-6 text-center text-gray-500">
-        No transactions found.
+        No transactions log found.
       </div>
     </template>
 

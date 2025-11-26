@@ -14,7 +14,7 @@
   to="/adm"
   class="text-2xl font-bold hover:text-neutral transition-colors"
 >
-  ADM
+  cdcOSP - ADM
 </NuxtLink>
 
           <UButton
@@ -30,8 +30,8 @@
         <nav class="space-y-2">
           <SidebarItem label="Home" icon="Home" to="/adm" />
           <SidebarItem label="User" icon="User" to="/adm/users" />
-          <SidebarItem label="Payments" icon="CreditCard" to="/adm/payments" />
-          <SidebarItem label="Transactions" icon="List" to="/adm/transactions" />
+          <SidebarItem label="Transactions" icon="CreditCard" to="/adm/payments" />
+          <SidebarItem label="Transactions Log" icon="List" to="/adm/transactions" />
           <SidebarItem label="Services" icon="Settings" to="/adm/services" />
         </nav>
       </div>

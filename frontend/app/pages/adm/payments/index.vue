@@ -29,8 +29,8 @@ async function load() {
     payments.value = raw
     total.value = res.total ?? payments.value.length
   } catch (err) {
-    console.error('Failed to load payments:', err)
-    toast.add({ title: 'Failed to load payments', color: 'error' })
+    console.error('Failed to load transactions:', err)
+    toast.add({ title: 'Failed to load transactions', color: 'error' })
     payments.value = []
     total.value = 0
   } finally {
@@ -39,10 +39,10 @@ async function load() {
 }
 
 async function removePayment(id: number) {
-  if (!confirm('Delete this payment?')) return
+  if (!confirm('Delete this transactions?')) return
   try {
     await $api(`/adm/payments/${id}`, { method: 'DELETE' })
-    toast.add({ title: 'Payment deleted', color: 'success' })
+    toast.add({ title: 'Transactions deleted', color: 'success' })
     await load()
   } catch (err) {
     console.error('Delete failed', err)
@@ -57,7 +57,7 @@ function go(p: number) {
 
 const adminTitle = useAdminTitle()
 onMounted(() => {
-  adminTitle.value = 'Payment Management'
+  adminTitle.value = 'Transactions'
   load()
 })
 
@@ -214,7 +214,7 @@ function onRowSelect(e: Event, row: any) {
 
 <template>
   <AdminTablePage
-    title="Payment Management"
+    title="Transactions"
     :data="payments"
     :columns="columns"
     :loading="pending"
@@ -226,13 +226,13 @@ function onRowSelect(e: Event, row: any) {
   >
     <template #loading>
       <div class="p-6 text-center text-gray-500">
-        Loading payments…
+        Loading transactions…
       </div>
     </template>
 
     <template #empty>
       <div class="p-6 text-center text-gray-500">
-        No payments found.
+        No transactions found.
       </div>
     </template>
 

@@ -1,6 +1,6 @@
 #backend/main.py
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from decimal import Decimal
@@ -34,7 +34,18 @@ import traceback
 
 
 
-app = FastAPI(title="Dummy Bank Backend")
+API_VERSION = settings.API_VERSION
+TITLE = settings.API_TITLE
+DESCRIPTION = settings.API_DESCRIPTION
+CONTACT_NAME = settings.API_CONTACT_NAME
+CONTACT_EMAIL = settings.API_CONTACT_EMAIL
+
+app = FastAPI(
+    title=TITLE,
+    description=DESCRIPTION,
+    version=API_VERSION,
+    contact={"name": CONTACT_NAME,"email": CONTACT_EMAIL,},
+)
 
 def _parse_cors(origins_str: str):
     # support: "http://a,http://b" or "*"
@@ -52,7 +63,7 @@ app.add_middleware(
 )
 
 # --- Static files (logos) ---
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount(f"/api/dmb/{API_VERSION}/static", StaticFiles(directory="static"), name="static")
 
 # --- DB Init ---
 # TODO: Move into Postgres, and this cause conflict on deploy
@@ -151,20 +162,39 @@ def seed_data():
     finally:
         db.close()
 
+# --------- Versioned API Router ----------
+api_router = APIRouter(prefix=f"/api/dmb/{API_VERSION}")
 
-# --- Routers ---
-app.include_router(auth_routes.router)
-app.include_router(accounts_routes.router)
-app.include_router(payments_routes.router)
-app.include_router(transactions_routes.router)
-app.include_router(services_routes.router)
-app.include_router(user_management.router)
-app.include_router(service_management.router)
-app.include_router(transaction_management.router)
-app.include_router(payment_management.router)
-app.include_router(accounts_router)
+
+# Use explicit prefixes 
+api_router.include_router(auth_routes.router)
+api_router.include_router(accounts_routes.router)
+api_router.include_router(payments_routes.router)
+api_router.include_router(transactions_routes.router)
+api_router.include_router(services_routes.router)
+
+
+api_router.include_router(user_management.router)
+api_router.include_router(service_management.router)
+api_router.include_router(transaction_management.router)
+api_router.include_router(payment_management.router)
+api_router.include_router(accounts_router)
+# Mount the versioned API
+app.include_router(api_router)
+
+# # --- Routers ---
+# app.include_router(auth_routes.router)
+# app.include_router(accounts_routes.router)
+# app.include_router(payments_routes.router)
+# app.include_router(transactions_routes.router)
+# app.include_router(services_routes.router)
+# app.include_router(user_management.router)
+# app.include_router(service_management.router)
+# app.include_router(transaction_management.router)
+# app.include_router(payment_management.router)
+# app.include_router(accounts_router)
 
 
 @app.get("/")
 def root():
-    return {"status": "ok", "app": "Dummy Bank API"}
+    return {"status": "ok", "app": "Dummy Bank API", "api_base": f"/api/dmb/{API_VERSION}/"}
