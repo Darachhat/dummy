@@ -62,13 +62,19 @@
           <span class="text-gray-500">Amount</span>
           <div class="text-right">
             <p class="font-medium text-gray-800">
-              {{ formatCurrency(payment?.invoice_amount, payment?.invoice_currency) }}
+              {{
+                formatCurrency(
+                  payment?.invoice_amount,
+                  payment?.invoice_currency
+                )
+              }}
             </p>
             <p
               v-if="payment?.invoice_currency === 'KHR'"
               class="text-xs text-gray-500"
             >
-              ≈ {{ formatCurrency(convertToUSD(payment?.invoice_amount), 'USD') }}
+              ≈
+              {{ formatCurrency(convertToUSD(payment?.invoice_amount), 'USD') }}
             </p>
           </div>
         </div>
@@ -76,7 +82,12 @@
         <div class="flex justify-between">
           <span class="text-gray-500">Fee</span>
           <span class="font-medium text-gray-800">
-            {{ formatCurrency(payment?.fee, payment?.currency || payment?.invoice_currency || 'USD') }}
+            {{
+              formatCurrency(
+                payment?.fee,
+                payment?.currency || payment?.invoice_currency || 'USD'
+              )
+            }}
           </span>
         </div>
         <div class="dotted-divider"></div>
@@ -85,12 +96,14 @@
           <span>Total Amount</span>
           <div class="text-right">
             <p>
-              {{ formatCurrency(payment?.total_amount, payment?.currency || payment?.invoice_currency || 'USD') }}
+              {{
+                formatCurrency(
+                  payment?.total_amount,
+                  payment?.currency || payment?.invoice_currency || 'USD'
+                )
+              }}
             </p>
-            <p
-              v-if="payment?.currency === 'KHR'"
-              class="text-xs text-gray-500"
-            >
+            <p v-if="payment?.currency === 'KHR'" class="text-xs text-gray-500">
               ≈ {{ formatCurrency(convertToUSD(payment?.total_amount), 'USD') }}
             </p>
           </div>
@@ -106,11 +119,14 @@
         Enter your 4-digit PIN to confirm payment
       </p>
 
-      <div class="flex justify-center space-x-3 mb-6" @paste.prevent="handlePaste">
+      <div
+        class="flex justify-center space-x-3 mb-6"
+        @paste.prevent="handlePaste"
+      >
         <input
           v-for="(n, idx) in 4"
           :key="idx"
-          :ref="setPinInputRef"
+          :ref="(el) => setPinInputRef(el, idx)"
           v-model="pin[idx]"
           inputmode="numeric"
           pattern="[0-9]*"
@@ -163,11 +179,17 @@ const getLogoUrl = (path: string) =>
     : `${BACKEND_URL}${path}`;
 
 /** helper for template ref array */
-function setPinInputRef(el: HTMLInputElement | null) {
+/** deterministic pin input refs */
+function setPinInputRef(el: HTMLInputElement | null, idx?: number) {
   if (!el) return;
-  // maintain order by index presence (Vue pushes in render order)
-  pinInputs.value.push(el);
+  if (typeof idx === 'number') {
+    pinInputs.value[idx] = el;
+    return;
+  }
+  // fallback (won't be used anymore)
+  if (!pinInputs.value.includes(el)) pinInputs.value.push(el);
 }
+
 
 /** Move focus to the element at index (if exists) */
 function focusAt(index: number) {
@@ -212,7 +234,12 @@ const handleKeyDown = (index: number, e: KeyboardEvent) => {
     focusAt(index - 1);
   } else if (e.key === 'ArrowRight' && index < 3) {
     focusAt(index + 1);
-  } else if (e.key && /\d/.test(e.key) && (e.target as HTMLInputElement).value && index < 3) {
+  } else if (
+    e.key &&
+    /\d/.test(e.key) &&
+    (e.target as HTMLInputElement).value &&
+    index < 3
+  ) {
     // If pressing a digit when current already filled, write and advance:
     // (This is optional fallback; main flow handled in input event)
     focusAt(index + 1);
@@ -252,6 +279,7 @@ watch(payment, () => {
 
 /** Confirm payment — send both body and query pin for compatibility */
 const confirmPayment = async () => {
+  error.value = '';
   if (!payment.value?.id) {
     toast.show('Invalid payment session. Please start again.', 'error');
     navigateTo('/payment/invoice');
@@ -259,6 +287,12 @@ const confirmPayment = async () => {
   }
   if (!isPinComplete.value) {
     error.value = 'Please enter 4-digit PIN';
+    return;
+  }
+
+  const pinStr = pin.value.join('').trim();
+  if (!/^\d{4}$/.test(pinStr)) {
+    error.value = 'PIN must be 4 digits';
     return;
   }
 
@@ -270,7 +304,6 @@ const confirmPayment = async () => {
       `/payments/${payment.value.id}/confirm?pin=${encodeURIComponent(code)}`,
       {
         method: 'POST',
-        body: { pin: code },
       }
     );
     payment.value = { ...payment.value, ...res, status: 'confirmed' };
@@ -288,7 +321,9 @@ const confirmPayment = async () => {
     toast.show(error.value, 'error');
     // clear pin inputs so user can retry
     pin.value = ['', '', '', ''];
-    pinInputs.value.forEach((el) => { if (el) el.value = ''; });
+    pinInputs.value.forEach((el) => {
+      if (el) el.value = '';
+    });
     // focus first
     setTimeout(() => focusAt(0), 50);
   } finally {

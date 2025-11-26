@@ -1,21 +1,27 @@
 # backend/api/routes/payments.py
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from decimal import Decimal, InvalidOperation
 from api.deps import get_db, get_user_id
-from models import Payment, Transaction, Account, Service
-from schemas.payment import PaymentStartOut, PaymentConfirmOut
-from core.config import settings
 
-from core.utils.payments import mark_confirmed
+from models import Payment, Transaction, Account, Service
+from models.user import User
+import re
+
+from schemas.payment import PaymentStartOut, PaymentConfirmOut
+
 import uuid
 import logging
 import httpx
-from fastapi.responses import JSONResponse
 from datetime import datetime, timedelta, timezone
+
 from core.utils.timezone import to_local_time
+from core.utils.payments import mark_confirmed
 from core.utils.txid import generate_transaction_id_from_id
 from core.utils.currency import convert_amount
+from core.config import settings
+from core.security import verify_password
 
 if settings.USE_MOCK_OSP is True:
     from services.osp_client_mockup import (
@@ -183,6 +189,17 @@ async def confirm_payment(
     account = db.query(Account).filter_by(id=payment.account_id, user_id=user_id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
+    
+       # PIN must be exactly 4 numeric digits
+    if not isinstance(pin, str) or not re.fullmatch(r"\d{4}", pin):
+        raise HTTPException(status_code=400, detail="PIN must be exactly 4 numeric digits")
+    
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user or not getattr(user, "pin_hash", None):
+        raise HTTPException(status_code=401, detail="PIN not set for user")
+    
+    if not verify_password(pin, user.pin_hash):
+        raise HTTPException(status_code=402, detail="Invalid PIN")
 
     # Ensure account has still enough balance
     try:
