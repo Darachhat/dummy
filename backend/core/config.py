@@ -26,4 +26,8 @@ class Settings(BaseSettings):
     API_CONTACT_NAME: str = config('API_CONTACT_NAME', cast=str)
     API_CONTACT_EMAIL: str = config('API_CONTACT_EMAIL', cast=str)
 
+    LOG_LEVEL: str = config('LOG_LEVEL', cast=str)
+    LOG_PATH: str = config('LOG_PATH', cast=str, default='./logs')
+    SINGLE_PROCESS: int = config('SINGLE_PROCESS', cast=int, default=1)
+
 settings = Settings()

@@ -12,7 +12,6 @@ import re
 from schemas.payment import PaymentStartOut, PaymentConfirmOut
 
 import uuid
-import logging
 import httpx
 from datetime import datetime, timedelta, timezone
 
@@ -22,6 +21,9 @@ from core.utils.txid import generate_transaction_id_from_id
 from core.utils.currency import convert_amount
 from core.config import settings
 from core.security import verify_password
+
+from loguru import logger
+from typing import Any
 
 if settings.USE_MOCK_OSP is True:
     from services.osp_client_mockup import (
@@ -39,7 +41,8 @@ else:
     )
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
-logger = logging.getLogger(__name__)
+
+SENSITIVE_KEYS = {"pin"}
 
 
 def _to_decimal(v, default="0.00"):
@@ -49,29 +52,84 @@ def _to_decimal(v, default="0.00"):
         return Decimal(default)
 
 
+def _value_and_type(value: Any) -> dict[str, Any]:
+    return {
+        "value": value if isinstance(value, (str, int, float, bool)) or value is None else repr(value),
+        "type": type(value).__name__,
+    }
+
+
+def _build_param_log(params: dict[str, Any]) -> dict:
+    return {
+        k: {"value": "***masked***", "type": "secret"} if k.lower() == "pin" else _value_and_type(v)
+        for k, v in params.items()
+    }
+
+
+def _log_payment_request(endpoint: str, user_id: int | None, **params: Any) -> None:
+    try:
+        logger.bind(
+            payment_log="request",
+            endpoint=endpoint,
+            user_id=user_id,
+            request_params=_build_param_log(params),
+        ).info("Payment request")
+    except Exception:
+        # logging must never break the flow
+        pass
+
+
+def _serialize_response(response: Any) -> Any:
+    try:
+        if hasattr(response, "model_dump"):
+            return response.model_dump()
+        if hasattr(response, "dict"):
+            return response.dict()
+    except Exception:
+        pass
+    if isinstance(response, (dict, list, tuple, str, int, float, bool)) or response is None:
+        return response
+    return repr(response)
+
+
+def _log_payment_response(endpoint: str, user_id: int | None, response: Any) -> None:
+    try:
+        logger.bind(
+            payment_log="response",
+            endpoint=endpoint,
+            user_id=user_id,
+            response=_serialize_response(response),
+        ).info("Payment response")
+    except Exception:
+        pass
+
+
 # Lookup Invoice (Query Payment)
 @router.get("/lookup")
 async def lookup(reference_number: str):
-    """Query OSP for payment info"""
     try:
         result = await osp_lookup(reference_number)
         return result
     except httpx.HTTPStatusError as e:
         # Handle specific 423 Locked status from OSP
         if e.response.status_code == 423:
+            response = {
+                "detail": "This invoice has already been paid.",
+                "reference_number": reference_number,
+            }
             return JSONResponse(
                 status_code=423,
-                content={
-                    "detail": "This invoice has already been paid.",
-                    "reference_number": reference_number,
-                },
+                content=response,
             )
         # Handle all other HTTP errors
+        detail = f"OSP Error: {e.response.text}"
+        logger.exception(detail)
         raise HTTPException(
             status_code=e.response.status_code,
-            detail=f"OSP Error: {e.response.text}",
+            detail=detail,
         )
     except Exception as e:
+        logger.exception(f"Lookup failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -84,20 +142,19 @@ async def start_payment(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_user_id),
 ):
-    """Start payment process by verifying invoice and reserving funds on the selected account.
-
-    Behavior (currency-aware):
-      - If invoice currency == account.currency -> debit invoice amount (no conversion)
-      - Else -> convert invoice amount -> account.currency and debit converted amount
-      - Fee (settings.FEE_AMOUNT) is assumed USD and converted into account.currency before summing
-    """
     account = db.query(Account).filter_by(id=account_id, user_id=user_id).first()
     service = db.query(Service).filter_by(id=service_id).first()
 
     if not account or not service:
         raise HTTPException(status_code=404, detail="Account or service not found")
 
-    # Re-verify invoice from OSP
+    _log_payment_request(
+        "payments.start.osp_lookup",
+        user_id=user_id,
+        reference_number=reference_number,
+        account_id=account_id,
+        service_id=service_id,
+    )
     osp_data = await osp_lookup(reference_number)
     if not osp_data or osp_data.get("response_code") != 200:
         raise HTTPException(status_code=400, detail="Invalid invoice from OSP")
@@ -154,8 +211,7 @@ async def start_payment(
     db.commit()
     db.refresh(payment)
 
-    # Use PaymentStartOut instead of raw dict
-    return PaymentStartOut(
+    response = PaymentStartOut(
         payment_id=payment.id,
         reference_number=payment.reference_number,
         customer_name=payment.customer_name,
@@ -173,6 +229,9 @@ async def start_payment(
         },
     )
 
+    _log_payment_response("payments.start", user_id=user_id, response=response)
+    return response
+
 
 # Confirm Payment (Commit + Confirm)
 @router.post("/{payment_id}/confirm", response_model=PaymentConfirmOut)
@@ -189,15 +248,15 @@ async def confirm_payment(
     account = db.query(Account).filter_by(id=payment.account_id, user_id=user_id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-    
-       # PIN must be exactly 4 numeric digits
+
+    # PIN must be exactly 4 numeric digits
     if not isinstance(pin, str) or not re.fullmatch(r"\d{4}", pin):
         raise HTTPException(status_code=400, detail="PIN must be exactly 4 numeric digits")
-    
+
     user = db.query(User).filter_by(id=user_id).first()
     if not user or not getattr(user, "pin_hash", None):
         raise HTTPException(status_code=401, detail="PIN not set for user")
-    
+
     if not verify_password(pin, user.pin_hash):
         raise HTTPException(status_code=402, detail="Invalid PIN")
 
@@ -219,12 +278,18 @@ async def confirm_payment(
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
     try:
-        transaction_id = f"TID{payment.id:06d}{uuid.uuid4().hex[:2]}"
+        transaction_id = generate_transaction_id_from_id(payment.id, datetime.utcnow())
         logger.info(
             f"[Payment Confirm] Start Ref={payment.reference_number}, Txn={transaction_id}"
         )
 
-        # Always refresh session before commit
+        # Always refresh session before commit (pre-OSP request log)
+        _log_payment_request(
+            "payments.confirm.osp_lookup",
+            user_id=user_id,
+            payment_id=payment_id,
+            reference_number=payment.reference_number,
+        )
         lookup_res = await osp_lookup(payment.reference_number)
         if lookup_res.get("response_code") == 200:
             payment.session_id = lookup_res.get("session_id")
@@ -236,7 +301,15 @@ async def confirm_payment(
                 detail="Invalid invoice or expired session from OSP",
             )
 
-        # --- Commit Payment to OSP ---
+        # --- Commit Payment to OSP --- (pre-OSP request log)
+        _log_payment_request(
+            "payments.confirm.osp_commit",
+            user_id=user_id,
+            payment_id=payment_id,
+            reference_number=payment.reference_number,
+            session_id=payment.session_id,
+            transaction_id=transaction_id,
+        )
         commit_res = await osp_commit(
             payment.reference_number, payment.session_id, transaction_id
         )
@@ -286,17 +359,23 @@ async def confirm_payment(
         db.refresh(tx)
 
         try:
-            tx.transaction_id = generate_transaction_id_from_id(
-                tx.id, tx.created_at or datetime.utcnow()
-            )
+            tx.transaction_id = transaction_id
             db.add(tx)
             db.commit()
             db.refresh(tx)
         except Exception:
             db.rollback()
 
-        # --- Confirm Payment with OSP ---
+        # --- Confirm Payment with OSP --- (pre-OSP request log)
         ack_id = payment.acknowledgement_id
+        _log_payment_request(
+            "payments.confirm.osp_confirm",
+            user_id=user_id,
+            payment_id=payment_id,
+            reference_number=payment.reference_number,
+            transaction_id=tx.transaction_id,
+            acknowledgement_id=ack_id,
+        )
         confirm_res = await osp_confirm(
             payment.reference_number, tx.transaction_id, ack_id
         )
@@ -311,7 +390,7 @@ async def confirm_payment(
         # --- Prepare local time for UI ---
         local_cdc_time = to_local_time(payment.cdc_transaction_datetime)
 
-        return PaymentConfirmOut(
+        response = PaymentConfirmOut(
             status=payment.status,
             transaction_id=tx.transaction_id or str(tx.id),
             account_id=account.id,
@@ -345,6 +424,9 @@ async def confirm_payment(
             },
         )
 
+        _log_payment_response("payments.confirm", user_id=user_id, response=response)
+        return response
+
     except HTTPException as e:
         # Mark payment as failed on expected OSP / business errors
         db.rollback()
@@ -377,22 +459,34 @@ async def reverse_payment(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_user_id),
 ):
-    """Reverse a previously started or failed payment"""
     payment = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
     try:
+        # Pre-OSP request log
+        _log_payment_request(
+            "payments.reverse.osp_reverse",
+            user_id=user_id,
+            payment_id=payment_id,
+            reference_number=payment.reference_number,
+            session_id=payment.session_id,
+        )
         res = await osp_reverse(payment.reference_number, payment.session_id)
         logger.info(f"[OSP Reverse Response] {res}")
 
         payment.status = "reversed"
         db.commit()
-        return {"status": payment.status, "osp_response": res}
+
+        response = {"status": payment.status, "osp_response": res}
+        _log_payment_response("payments.reverse", user_id=user_id, response=response)
+        return response
 
     except Exception as e:
         db.rollback()
         logger.exception(f"Reverse failed: {e}")
         payment = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
-        if payment: payment.status = "failed"; db.commit()
+        if payment:
+            payment.status = "failed"
+            db.commit()
         raise HTTPException(status_code=500, detail=str(e))

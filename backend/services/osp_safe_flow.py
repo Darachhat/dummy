@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from services.osp_client import osp_lookup, osp_commit, osp_confirm, osp_reverse
 from models.payment import Payment
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 async def osp_full_payment_flow(payment: Payment, db: Session):
     """CDC Flow: Lookup → Commit → Confirm → Reverse (if confirm fails)"""

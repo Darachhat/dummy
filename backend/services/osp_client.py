@@ -1,8 +1,11 @@
 import httpx
-import logging
 from core.config import settings
+from typing import Any
+from loguru import logger
+from core.config import settings
+import httpx
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 HEADERS = {
     "Authorization": settings.OSP_AUTH,
@@ -11,6 +14,21 @@ HEADERS = {
 
 BASE_URL = settings.OSP_BASE_URL
 TIMEOUT = settings.OSP_TIMEOUT or 30
+
+SENSITIVE_KEYS = {"pin"} 
+
+def _value_and_type(value: Any) -> dict[str, Any]:
+    return {
+        "value": value if isinstance(value, (str, int, float, bool)) or value is None else repr(value),
+        "type": type(value).__name__,
+    }
+
+
+def _build_param_log(params: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        k: {"value": "***masked***", "type": "secret"} if k.lower() in SENSITIVE_KEYS else _value_and_type(v)
+        for k, v in params.items()
+    }
 
 
 # 1️ Query Payment (Lookup)
@@ -21,10 +39,20 @@ async def osp_lookup(reference_number: str):
         "reference_number": reference_number,
         "partner": settings.OSP_PARTNER,
     }
-    logger.info(f"[OSP][lookup] → GET {url} {params}")
+    logger.bind(
+        osp_log="request",
+        endpoint="osp.lookup",
+        url=url,
+        params=_build_param_log(params),
+    ).info("[OSP][lookup] → GET")
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         res = await client.get(url, params=params, headers={"Authorization": settings.OSP_AUTH})
-        logger.info(f"[OSP][lookup] ← {res.status_code}: {res.text}")
+        logger.bind(
+            osp_log="response",
+            endpoint="osp.lookup",
+            url=url,
+            status_code=res.status_code,
+        ).info(f"[OSP][lookup] ← {res.status_code}: {res.text}")
         res.raise_for_status()
         return res.json()
 
@@ -41,14 +69,30 @@ async def osp_commit(reference_number: str, session_id: str, transaction_id: str
         "transaction_id": numeric_tid,
         "partner": settings.OSP_PARTNER,
     }
+    logger.bind(
+        osp_log="request",
+        endpoint="osp.commit",
+        url=url,
+        data=_build_param_log(data),
+    ).info("[OSP][commit] → POST")
 
-    logger.info(f"[OSP][commit] → POST {url} {data}")
+    
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         res = await client.post(url, data=data, headers=HEADERS)
         if res.status_code != 200:
-            logger.error(f"[OSP][commit][{res.status_code}] {res.text}")
+            logger.bind(
+                osp_log="response",
+                endpoint="osp.commit",
+                url=url,
+                status_code=res.status_code,
+            ).error(f"[OSP][commit][FAIL] {res.text}")
         else:
-            logger.info(f"[OSP][commit][OK] {res.text}")
+            logger.bind(
+                osp_log="response",
+                endpoint="osp.commit",
+                url=url,
+                status_code=res.status_code,
+            ).info(f"[OSP][commit][OK] {res.text}")
         res.raise_for_status()
         return res.json()
 
@@ -66,13 +110,28 @@ async def osp_confirm(reference_number: str, transaction_id: str, acknowledgemen
         "partner": settings.OSP_PARTNER,
     }
 
-    logger.info(f"[OSP][confirm] → POST {url} {data}")
+    logger.bind(
+        osp_log="request",
+        endpoint="osp.confirm",
+        url=url,
+        data=_build_param_log(data),
+    ).info("[OSP][confirm] → POST")
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         res = await client.post(url, data=data, headers=HEADERS)
         if res.status_code != 200:
-            logger.error(f"[OSP][confirm][{res.status_code}] {res.text}")
+            logger.bind(
+                osp_log="response",
+                endpoint="osp.confirm",
+                url=url,
+                status_code=res.status_code,
+            ).error(f"[OSP][confirm][FAIL] {res.text}")
         else:
-            logger.info(f"[OSP][confirm][OK] {res.text}")
+            logger.bind(
+                osp_log="response",
+                endpoint="osp.confirm",
+                url=url,
+                status_code=res.status_code,
+            ).info(f"[OSP][confirm][OK] {res.text}")
         res.raise_for_status()
         return res.json()
 
@@ -91,12 +150,27 @@ async def osp_reverse(reference_number: str, transaction_id: str, reversal_trans
         "partner": settings.OSP_PARTNER,
     }
 
-    logger.info(f"[OSP][reverse] → POST {url} {data}")
+    logger.bind(
+        osp_log="request",
+        endpoint="osp.reverse",
+        url=url,
+        data=_build_param_log(data),
+    ).info("[OSP][reverse] → POST")
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         res = await client.post(url, data=data, headers=HEADERS)
         if res.status_code != 200:
-            logger.error(f"[OSP][reverse][{res.status_code}] {res.text}")
+            logger.bind(
+                osp_log="response",
+                endpoint="osp.reverse",
+                url=url,
+                status_code=res.status_code,
+            ).error(f"[OSP][reverse][FAIL] {res.text}")
         else:
-            logger.info(f"[OSP][reverse][OK] {res.text}")
+            logger.bind(
+                osp_log="response",
+                endpoint="osp.reverse",
+                url=url,
+                status_code=res.status_code,
+            ).info(f"[OSP][reverse][OK] {res.text}")
         res.raise_for_status()
         return res.json()

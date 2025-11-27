@@ -7,6 +7,8 @@ from decimal import Decimal
 from alembic.script import ScriptDirectory
 
 from core.config import settings
+from core.logging import setup_logging
+from loguru import logger
 from core.security import hash_password
 from db.base import Base
 from db.session import engine, SessionLocal
@@ -21,6 +23,7 @@ from api.routes import transactions as transactions_routes
 from api.routes import services as services_routes
 from api.routes.admin import user_management, service_management, transaction_management, payment_management
 from api.routes.admin.accounts import accounts_router
+from api.routes import debug 
 
 # Models
 from models.user import User
@@ -39,6 +42,8 @@ TITLE = settings.API_TITLE
 DESCRIPTION = settings.API_DESCRIPTION
 CONTACT_NAME = settings.API_CONTACT_NAME
 CONTACT_EMAIL = settings.API_CONTACT_EMAIL
+
+setup_logging()
 
 app = FastAPI(
     title=TITLE,
@@ -88,12 +93,12 @@ def run_migrations():
         script  = ScriptDirectory.from_config(alembic_cfg)
         heads   = script.get_heads()
         if len(heads) > 1:
-            logging.warning(f"Multiple heads detected: {heads}. Merging...")
+            logger.warning(f"Multiple heads detected: {heads}. Merging...")
             command.merge(alembic_cfg, "heads", message="Auto-merge multiple heads")
 
         command.upgrade(alembic_cfg, "head")
     except Exception:
-        logging.error("Error while running alembic migrations:\n" + traceback.format_exc())
+        logger.error("Error while running alembic migrations:\n" + traceback.format_exc())
         raise
 
 # --- Startup seeding ---
@@ -172,6 +177,8 @@ api_router.include_router(accounts_routes.router)
 api_router.include_router(payments_routes.router)
 api_router.include_router(transactions_routes.router)
 api_router.include_router(services_routes.router)
+
+api_router.include_router(debug.router)  
 
 
 api_router.include_router(user_management.router)
