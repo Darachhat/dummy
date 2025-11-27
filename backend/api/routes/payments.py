@@ -4,8 +4,6 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from decimal import Decimal, InvalidOperation
 from api.deps import get_db, get_user_id
-from core.logging import logger
-
 
 from models import Payment, Transaction, Account, Service
 from models.user import User
@@ -41,15 +39,7 @@ else:
     )
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
-logger = logger.bind(module="api.routes.payments")
-
-
-def log_osp_response(ctx: dict, op: str, response: dict | None):
-    logger.bind(**ctx).info(
-        f"osp_{op}_response",
-        response=response if isinstance(response, dict) else str(response)
-    )
-
+logger = logging.getLogger(__name__)
 
 
 def _to_decimal(v, default="0.00"):
@@ -94,58 +84,52 @@ async def start_payment(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_user_id),
 ):
-    start_ts = datetime.utcnow()
-    ctx = {"user_id": user_id, "account_id": account_id, "reference_number": reference_number, "service_id": service_id}
-    logger.bind(**ctx).info("start_payment requested")
+    """Start payment process by verifying invoice and reserving funds on the selected account.
 
+    Behavior (currency-aware):
+      - If invoice currency == account.currency -> debit invoice amount (no conversion)
+      - Else -> convert invoice amount -> account.currency and debit converted amount
+      - Fee (settings.FEE_AMOUNT) is assumed USD and converted into account.currency before summing
+    """
     account = db.query(Account).filter_by(id=account_id, user_id=user_id).first()
     service = db.query(Service).filter_by(id=service_id).first()
 
     if not account or not service:
-        logger.bind(**ctx).warning("account or service not found")
         raise HTTPException(status_code=404, detail="Account or service not found")
 
     # Re-verify invoice from OSP
-    try:
-        osp_data = await osp_lookup(reference_number)
-        log_osp_response(ctx, "lookup", osp_data)
-    except Exception as e:
-        logger.bind(**ctx).exception("osp_lookup failed")
-        raise HTTPException(status_code=500, detail="OSP lookup failed")
-
+    osp_data = await osp_lookup(reference_number)
     if not osp_data or osp_data.get("response_code") != 200:
-        logger.bind(**ctx).warning("invalid invoice from osp", osp_response_code=osp_data.get("response_code") if osp_data else None)
         raise HTTPException(status_code=400, detail="Invalid invoice from OSP")
 
     # Invoice details from OSP
     invoice_amount = _to_decimal(osp_data.get("amount", "0"))
     invoice_currency = (osp_data.get("currency") or "KHR").upper()
+
+    # Account currency (what will be debited)
     account_currency = (getattr(account, "currency", "USD") or "USD").upper()
 
-    # Fee conversion
+    # Fee is configured in settings (assume USD). Convert fee into account currency.
     fee_usd = _to_decimal(settings.FEE_AMOUNT or "0.00")
     fee_in_account_currency = convert_amount(fee_usd, "USD", account_currency)
-    invoice_converted_to_account = convert_amount(invoice_amount, invoice_currency, account_currency)
 
-    total_debit = (invoice_converted_to_account + fee_in_account_currency).quantize(Decimal("0.01"))
+    # Convert invoice -> account currency (no-op if same currency)
+    invoice_converted_to_account = convert_amount(
+        invoice_amount, invoice_currency, account_currency
+    )
 
+    # Total to reserve / debit from the account (in account currency)
+    total_debit = (invoice_converted_to_account + fee_in_account_currency).quantize(
+        Decimal("0.01")
+    )
+
+    # Check account balance
     try:
         acct_balance = Decimal(account.balance or 0).quantize(Decimal("0.01"))
     except Exception:
         acct_balance = Decimal("0.00")
 
-    logger.bind(**ctx).debug(
-        "balance_check",
-        invoice_amount=str(invoice_amount),
-        invoice_currency=invoice_currency,
-        invoice_converted=str(invoice_converted_to_account),
-        fee=str(fee_in_account_currency),
-        total_debit=str(total_debit),
-        acct_balance=str(acct_balance),
-    )
-
     if acct_balance < total_debit:
-        logger.bind(**ctx).warning("insufficient balance", acct_balance=str(acct_balance), required=str(total_debit))
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
     osp_session_id = osp_data.get("session_id") or str(uuid.uuid4())
@@ -157,9 +141,9 @@ async def start_payment(
         service_id=service.id,
         reference_number=reference_number,
         customer_name=osp_data.get("customer_name"),
-        amount=float(invoice_amount.quantize(Decimal("0.01"))),
+        amount=float(invoice_amount.quantize(Decimal("0.01"))),  # original invoice
         fee=float(fee_in_account_currency.quantize(Decimal("0.01"))),
-        total_amount=float(total_debit),
+        total_amount=float(total_debit),  # debited from account (account_currency)
         currency=account_currency,
         invoice_currency=invoice_currency,
         session_id=osp_session_id,
@@ -170,11 +154,7 @@ async def start_payment(
     db.commit()
     db.refresh(payment)
 
-    logger.bind(payment_id=payment.id, **ctx).info("payment_started", payment_id=payment.id, session_id=osp_session_id)
-
-    elapsed = (datetime.utcnow() - start_ts).total_seconds()
-    logger.bind(payment_id=payment.id, **ctx).info("start_payment completed", elapsed_s=elapsed)
-
+    # Use PaymentStartOut instead of raw dict
     return PaymentStartOut(
         payment_id=payment.id,
         reference_number=payment.reference_number,
@@ -194,7 +174,6 @@ async def start_payment(
     )
 
 
-
 # Confirm Payment (Commit + Confirm)
 @router.post("/{payment_id}/confirm", response_model=PaymentConfirmOut)
 async def confirm_payment(
@@ -203,67 +182,70 @@ async def confirm_payment(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_user_id),
 ):
-    start_ts = datetime.utcnow()
-    ctx = {"user_id": user_id, "payment_id": payment_id}
-    logger.bind(**ctx).info("confirm_payment requested")
-
     payment = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
     if not payment:
-        logger.bind(**ctx).warning("payment not found")
         raise HTTPException(status_code=404, detail="Payment not found")
 
     account = db.query(Account).filter_by(id=payment.account_id, user_id=user_id).first()
     if not account:
-        logger.bind(**ctx).warning("account not found for payment", account_id=payment.account_id)
         raise HTTPException(status_code=404, detail="Account not found")
-
-    # PIN validation
+    
+       # PIN must be exactly 4 numeric digits
     if not isinstance(pin, str) or not re.fullmatch(r"\d{4}", pin):
-        logger.bind(**ctx).warning("invalid_pin_format")
         raise HTTPException(status_code=400, detail="PIN must be exactly 4 numeric digits")
-
+    
     user = db.query(User).filter_by(id=user_id).first()
     if not user or not getattr(user, "pin_hash", None):
-        logger.bind(**ctx).warning("pin_not_set_for_user")
         raise HTTPException(status_code=401, detail="PIN not set for user")
-
+    
     if not verify_password(pin, user.pin_hash):
-        logger.bind(**ctx).warning("invalid_pin_attempt")
         raise HTTPException(status_code=402, detail="Invalid PIN")
 
+    # Ensure account has still enough balance
     try:
-        #commit transaction id sent to OSP commit
-        commit_tid = generate_transaction_id_from_id(payment.id, datetime.utcnow())
-        logger.bind(commit_tid=commit_tid, **ctx).info("payment_confirm_flow_start")
+        acct_balance = Decimal(account.balance or 0).quantize(Decimal("0.01"))
+    except Exception:
+        acct_balance = Decimal("0.00")
 
-        # Refresh invoice/session from OSP
+    payment_total = _to_decimal(payment.total_amount).quantize(Decimal("0.01"))
+    payment_currency = (payment.currency or "USD").upper()
+    account_currency = (getattr(account, "currency", "USD") or "USD").upper()
+
+    # Defensive check
+    if payment_currency != account_currency:
+        payment_total = convert_amount(payment_total, payment_currency, account_currency)
+
+    if acct_balance < payment_total:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+
+    try:
+        transaction_id = generate_transaction_id_from_id(payment.id, datetime.utcnow())
+        logger.info(
+            f"[Payment Confirm] Start Ref={payment.reference_number}, Txn={transaction_id}"
+        )
+
+        # Always refresh session before commit
         lookup_res = await osp_lookup(payment.reference_number)
         if lookup_res.get("response_code") == 200:
             payment.session_id = lookup_res.get("session_id")
             db.commit()
-            logger.bind(**ctx).info("session_refreshed", session_id=payment.session_id)
+            logger.info(f"[Payment Confirm] Refreshed session_id={payment.session_id}")
         else:
-            logger.bind(**ctx).warning("osp_lookup_on_confirm_failed", osp_code=lookup_res.get("response_code"))
-            raise HTTPException(status_code=400, detail="Invalid invoice or expired session from OSP")
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid invoice or expired session from OSP",
+            )
 
-        # Commit payment to OSP 
-        commit_res = await osp_commit(payment.reference_number, payment.session_id, commit_tid)
-        log_osp_response(ctx, "commit", commit_res)
-        logger.bind(**ctx).debug(
-            "osp_commit",
-            response_code=commit_res.get("response_code"),
-            commit_tid=commit_tid,
-            osp_transaction_id=commit_res.get("transaction_id")
+        # --- Commit Payment to OSP ---
+        commit_res = await osp_commit(
+            payment.reference_number, payment.session_id, transaction_id
         )
+        logger.info(f"[OSP Commit Response] {commit_res}")
 
         if commit_res.get("response_code") != 200:
-            logger.bind(**ctx).error("osp_commit_failed", osp_response=commit_res)
             raise HTTPException(status_code=400, detail="OSP commit failed")
 
-        # OSP's definitive transaction ID
-        osp_tid = commit_res.get("transaction_id")
-
-        # Parse CDC datetime
+        # --- Convert CDC Datetime (UTC+7 and UTC) ---
         cdc_dt_str = commit_res.get("cdc_transaction_datetime")
         cdc_local = cdc_utc = None
         if cdc_dt_str:
@@ -271,9 +253,9 @@ async def confirm_payment(
                 cdc_local = datetime.strptime(cdc_dt_str, "%Y-%m-%d %H:%M:%S")
                 cdc_utc = (cdc_local - timedelta(hours=7)).replace(tzinfo=timezone.utc)
             except Exception as e:
-                logger.bind(**ctx).warning("cdc_parse_error", value=cdc_dt_str, error=str(e))
+                logger.warning(f"[CDC Time Parse Error] {cdc_dt_str}: {e}")
 
-        # Update payment record
+        # --- Update DB (mark payment committed) ---
         payment.acknowledgement_id = commit_res.get("acknowledgement_id")
         payment.cdc_transaction_datetime = cdc_local
         payment.cdc_transaction_datetime_utc = cdc_utc
@@ -281,65 +263,51 @@ async def confirm_payment(
         db.commit()
         db.refresh(payment)
 
-        logger.bind(**ctx).info("payment_marked_committed", ack_id=payment.acknowledgement_id)
-
-        # Record transaction
+        # --- Record Transaction ---
         debited_amount = _to_decimal(payment.total_amount).quantize(Decimal("0.01"))
+        debited_currency = payment.currency or account.currency or "USD"
+
         tx = Transaction(
             user_id=user_id,
             account_id=account.id,
             payment_id=payment.id,
             reference_number=payment.reference_number,
             amount=float(debited_amount),
-            currency=payment.currency or account.currency or "USD",
+            currency=debited_currency,
             direction="debit",
             description=f"Payment to {payment.service.name if payment.service else ''}",
             created_at=datetime.utcnow(),
         )
         db.add(tx)
 
-        account.balance = (Decimal(account.balance or 0).quantize(Decimal("0.01")) - debited_amount)
+        # Deduct from account balance
+        account.balance = (acct_balance - debited_amount).quantize(Decimal("0.01"))
         db.commit()
         db.refresh(tx)
 
-        # Store transaction id
-        tx.transaction_id = commit_tid
+        try:
+            tx.transaction_id = transaction_id
+            db.add(tx)
+            db.commit()
+            db.refresh(tx)
+        except Exception:
+            db.rollback()
 
-        db.add(tx)
-        db.commit()
-        db.refresh(tx)
-
-        logger.bind(transaction_db_id=tx.id, transaction_id=tx.transaction_id, osp_transaction_id=osp_tid, **ctx)\
-              .info("transaction_recorded")
-
-        # -----------------------------
-        # OSP CONFIRM (must use osp_tid)
-        # -----------------------------
-        confirm_tid = osp_tid or tx.transaction_id
-
-        confirm_res = await osp_confirm(payment.reference_number, confirm_tid, payment.acknowledgement_id)
-        log_osp_response(ctx, "confirm", confirm_res)
-        logger.bind(**ctx).debug(
-            "osp_confirm",
-            response_code=confirm_res.get("response_code"),
-            confirm_tid=confirm_tid
+        # --- Confirm Payment with OSP ---
+        ack_id = payment.acknowledgement_id
+        confirm_res = await osp_confirm(
+            payment.reference_number, tx.transaction_id, ack_id
         )
+        logger.info(f"[OSP Confirm Response] {confirm_res}")
 
         if confirm_res.get("response_code") != 200:
-            logger.bind(**ctx).error("osp_confirm_failed", osp_response=confirm_res)
             raise HTTPException(status_code=400, detail="OSP confirm failed")
 
-        # Mark payment confirmed
+        # Mark as confirmed in DB
         mark_confirmed(payment, db)
+
+        # --- Prepare local time for UI ---
         local_cdc_time = to_local_time(payment.cdc_transaction_datetime)
-
-        elapsed = (datetime.utcnow() - start_ts).total_seconds()
-
-        fields = dict(ctx)
-        fields["payment_id"] = payment.id
-        fields["transaction_id"] = tx.transaction_id
-
-        logger.bind(**fields).info("confirm_payment completed", elapsed_s=elapsed)
 
         return PaymentConfirmOut(
             status=payment.status,
@@ -347,7 +315,9 @@ async def confirm_payment(
             account_id=account.id,
             reference_number=payment.reference_number,
             customer_name=payment.customer_name,
-            invoice_amount=float(_to_decimal(payment.amount).quantize(Decimal("0.01"))),
+            invoice_amount=float(
+                _to_decimal(payment.amount).quantize(Decimal("0.01"))
+            ),
             invoice_currency=payment.invoice_currency,
             amount=float(debited_amount),
             amount_debited=float(debited_amount),
@@ -355,8 +325,16 @@ async def confirm_payment(
             total_amount=float(debited_amount),
             currency=(payment.currency or payment.invoice_currency),
             new_balance=float(account.balance),
-            cdc_transaction_datetime=payment.cdc_transaction_datetime.strftime("%Y-%m-%d %H:%M:%S") if payment.cdc_transaction_datetime else None,
-            cdc_transaction_datetime_utc=payment.cdc_transaction_datetime_utc.strftime("%Y-%m-%d %H:%M:%S") if payment.cdc_transaction_datetime_utc else None,
+            cdc_transaction_datetime=payment.cdc_transaction_datetime.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            if payment.cdc_transaction_datetime
+            else None,
+            cdc_transaction_datetime_utc=payment.cdc_transaction_datetime_utc.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            if payment.cdc_transaction_datetime_utc
+            else None,
             cdc_transaction_datetime_local=local_cdc_time,
             service={
                 "id": payment.service.id if payment.service else None,
@@ -366,6 +344,7 @@ async def confirm_payment(
         )
 
     except HTTPException as e:
+        # Mark payment as failed on expected OSP / business errors
         db.rollback()
         try:
             p = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
@@ -374,10 +353,9 @@ async def confirm_payment(
                 db.commit()
         except Exception:
             db.rollback()
-        logger.bind(**ctx).warning("confirm_payment_http_exception", detail=str(e.detail))
         raise e
-
     except Exception as e:
+        # Unexpected error: mark as failed and return 500
         db.rollback()
         try:
             p = db.query(Payment).filter_by(id=payment_id, user_id=user_id).first()
@@ -386,10 +364,11 @@ async def confirm_payment(
                 db.commit()
         except Exception:
             db.rollback()
-        logger.bind(**ctx).exception("confirm_payment_unexpected_error", error=str(e))
+        logger.exception(f"Payment confirm failed: {e}")
         raise HTTPException(status_code=500, detail=f"Confirm failed: {e}")
 
 
+# Reverse Payment
 @router.post("/{payment_id}/reverse")
 async def reverse_payment(
     payment_id: int,
@@ -403,7 +382,6 @@ async def reverse_payment(
 
     try:
         res = await osp_reverse(payment.reference_number, payment.session_id)
-        log_osp_response({"user_id": user_id, "payment_id": payment_id}, "reverse", res)
         logger.info(f"[OSP Reverse Response] {res}")
 
         payment.status = "reversed"

@@ -1,11 +1,17 @@
 # backend/core/logging.py
 from __future__ import annotations
-import logging, sys, os, threading
+
+import logging
+import os
+import sys
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
-from loguru import logger as _loguru_logger
-from core.config import settings
 from typing import Any
+
+from loguru import logger as _loguru_logger
+
+from core.config import settings
 
 LOG_PATH = settings.LOG_PATH
 LOG_LEVEL = settings.LOG_LEVEL
@@ -15,21 +21,28 @@ LOG_DIR = Path(LOG_PATH)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
+# --- Symlink helpers for "app.log" -> latest daily file ---
+
 def _create_or_update_symlink(target: Path, link_name: Path) -> None:
     try:
         if link_name.exists() or link_name.is_symlink():
             try:
                 link_name.unlink()
             except Exception:
+                # don't crash logging because of FS errors
                 pass
+
         try:
+            # best case: real symlink
             os.symlink(os.path.basename(target), link_name)
         except Exception:
+            # fallback: pointer file with full path
             tmp = link_name.with_suffix(".ptr")
             with open(tmp, "w", encoding="utf-8") as f:
                 f.write(str(target))
             os.replace(tmp, link_name)
     except Exception:
+        # absolutely do not let symlink issues kill the process
         return
 
 
@@ -43,21 +56,27 @@ def _symlink_updater_daemon(stop_event: threading.Event) -> None:
     while not stop_event.is_set():
         now = datetime.now()
         todays = _current_daily_filename(now)
+
         try:
             if not todays.exists():
                 todays.touch(exist_ok=True)
         except Exception:
             pass
+
         _create_or_update_symlink(todays, link)
-        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        next_midnight = (now + timedelta(days=1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         wait_seconds = (next_midnight - now).total_seconds()
         stop_event.wait(timeout=wait_seconds + 1)
 
 
+# --- Formatting helpers ---
+
 def _safe_str(v: Any) -> str:
     """Stable safe string representation for values (handles nested dicts)."""
     try:
-        # Prefer compact repr for dicts/lists, otherwise str()
         if isinstance(v, (dict, list, tuple)):
             return repr(v)
         return str(v)
@@ -66,7 +85,12 @@ def _safe_str(v: Any) -> str:
 
 
 def _safe_format(record: dict) -> str:
+    """
+    Common formatter for console + app + error logs.
+    It treats `extra["response"]` specially to avoid explosions on large/nested dicts.
+    """
     extra = record.get("extra") or {}
+
     # flatten/format nested response safely if present
     response = extra.get("response")
     response_str = _safe_str(response) if response is not None else ""
@@ -84,22 +108,46 @@ def _safe_format(record: dict) -> str:
 
     # copy extra but remove the response object (already handled)
     extra_display = {k: v for k, v in extra.items() if k != "response"}
-    # stringify values to avoid nested formatting issues
     extra_display = {k: _safe_str(v) for k, v in extra_display.items()}
 
-    return f"{t} | {level:<8} | {module}:{function}:{line} - {message} | response={response_str} | extra={extra_display}"
+    return (
+        f"{t} | {level:<8} | {module}:{function}:{line} - {message} "
+        f"| response={response_str} | extra={extra_display}"
+    )
 
+
+# --- OSP tracker sink filter ---
+
+def _osp_tracker_filter(record: dict) -> bool:
+    """
+    Only keep events whose *message* starts with 'osp_'.
+    This matches what you log from `log_osp_response()`:
+        logger.info('osp_lookup_response', response=...)
+    """
+    msg = record.get("message", "")
+    return isinstance(msg, str) and msg.startswith("osp_")
+
+
+# --- Main wiring ---
 
 def setup_logging() -> None:
+    # Reset loguru to avoid duplicate sinks if called twice
     try:
         _loguru_logger.remove()
     except Exception:
         pass
 
-    # console sink
-    _loguru_logger.add(sys.stderr, level=LOG_LEVEL, format=_safe_format, enqueue=True, backtrace=True, diagnose=False)
+    # Console sink
+    _loguru_logger.add(
+        sys.stderr,
+        level=LOG_LEVEL,
+        format=_safe_format,
+        enqueue=True,
+        backtrace=True,
+        diagnose=False,
+    )
 
-    # daily file sink (callable formatter)
+    # Daily app log
     _loguru_logger.add(
         str(LOG_DIR / "app_{time:YYYY-MM-DD}.log"),
         level=LOG_LEVEL,
@@ -112,7 +160,7 @@ def setup_logging() -> None:
         format=_safe_format,
     )
 
-    # ERROR-only sink — <--- important: use same callable formatter
+    # Error-only log
     _loguru_logger.add(
         str(LOG_DIR / "error_{time:YYYY-MM-DD}.log"),
         level="ERROR",
@@ -122,21 +170,41 @@ def setup_logging() -> None:
         enqueue=True,
         backtrace=True,
         diagnose=False,
-        format=_safe_format,   # <--- previously missing, now added
+        format=_safe_format,
     )
 
-    # Intercept stdlib logging -> loguru (forward pre-formatted message as raw)
+    # OSP tracker: JSON lines with only osp_* messages
+    _loguru_logger.add(
+        str(LOG_DIR / "osp_tracker_{time:YYYY-MM-DD}.log"),
+        level="INFO",
+        rotation="00:00",
+        retention="30 days",
+        compression="zip",
+        enqueue=True,
+        backtrace=False,
+        diagnose=False,
+        serialize=True,          # JSON
+        catch=True,              # don't crash on serialization issues
+        filter=_osp_tracker_filter,
+    )
+
+    # Intercept stdlib logging -> loguru (so logging.getLogger() also works)
     class InterceptHandler(logging.Handler):
         def emit(self, record: logging.LogRecord) -> None:
             try:
                 formatted = record.getMessage()
-                _loguru_logger.opt(exception=record.exc_info, raw=True).log(record.levelname, formatted)
+                _loguru_logger.opt(
+                    exception=record.exc_info,
+                    raw=True,
+                ).log(record.levelname, formatted)
             except Exception:
+                # absolutely never blow up because logging failed
                 try:
                     print(record.getMessage(), file=sys.stderr)
                 except Exception:
                     pass
 
+    # Reset root handlers and attach our intercept handler
     logging.root.handlers = [logging.NullHandler()]
     logging.basicConfig(handlers=[logging.NullHandler()], level=logging.NOTSET)
 
@@ -153,17 +221,22 @@ def setup_logging() -> None:
 
     logging.root.addHandler(InterceptHandler())
 
-    # quiet noisy libs
+    # quiet noisy libs a bit, but keep them flowing through loguru
     for noisy in ("uvicorn.access", "uvicorn.error", "asyncio"):
         try:
             logging.getLogger(noisy).setLevel(LOG_LEVEL)
         except Exception:
             pass
 
-    # symlink updater
+    # Symlink updater (only safe in single-process mode)
     if SINGLE_PROCESS:
         stop_event = threading.Event()
-        t = threading.Thread(target=_symlink_updater_daemon, args=(stop_event,), daemon=True, name="log-symlink-updater")
+        t = threading.Thread(
+            target=_symlink_updater_daemon,
+            args=(stop_event,),
+            daemon=True,
+            name="log-symlink-updater",
+        )
         t.start()
         _loguru_logger.debug("SINGLE_PROCESS=True: started symlink updater thread")
     else:
@@ -172,6 +245,7 @@ def setup_logging() -> None:
     _loguru_logger.debug(f"Logging initialized. logdir={LOG_DIR} level={LOG_LEVEL}")
 
 
-# initialize on import
+# Initialize on import so modules using `from core.logging import logger`
+# get a fully configured instance.
 setup_logging()
 logger = _loguru_logger
