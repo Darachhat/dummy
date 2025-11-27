@@ -219,7 +219,7 @@ async def confirm_payment(
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
     try:
-        transaction_id = generate_transaction_id_from_id(payment.id, datetime.utcnow())
+        transaction_id = f"TID{payment.id:06d}{uuid.uuid4().hex[:2]}"
         logger.info(
             f"[Payment Confirm] Start Ref={payment.reference_number}, Txn={transaction_id}"
         )
@@ -286,7 +286,9 @@ async def confirm_payment(
         db.refresh(tx)
 
         try:
-            tx.transaction_id = transaction_id
+            tx.transaction_id = generate_transaction_id_from_id(
+                tx.id, tx.created_at or datetime.utcnow()
+            )
             db.add(tx)
             db.commit()
             db.refresh(tx)
