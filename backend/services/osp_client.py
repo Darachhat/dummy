@@ -55,13 +55,40 @@ async def osp_lookup(reference_number: str):
         ).info(f"[OSP][lookup] ← {res.status_code}: {res.text}")
         res.raise_for_status()
         return res.json()
+    
+# Lookup Failed Simulation Service
+async def lookup_failed(reference_number: str):
+    url = f"{BASE_URL}/lookup-failed"
+    data = {
+        "reference_number": reference_number,
+        "partner": "failed lookup test",
+    }
+
+    logger.bind(
+        osp_log="request",
+        endpoint="osp.lookup_failed",
+        url=url,
+        data=_build_param_log(data),
+    ).info("[OSP][lookup_failed] → POST")
+
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        res = await client.post(url, data=data, headers=HEADERS)
+        logger.bind(
+                osp_log="response",
+                endpoint="osp.lookup_failed",
+                url=url,
+                status_code=res.status_code,
+        ).error(f"[OSP][lookup_failed][FAIL] {res.text}")
+        res.raise_for_status()
+        return res.json()
+
 
 
 # 2️ Commit Payment
 async def osp_commit(reference_number: str, session_id: str, transaction_id: str):
     """CDC Commit Payment — POST form-data"""
     url = f"{BASE_URL}/commit-payment"
-    numeric_tid = transaction_id.replace("TID", "").zfill(6)
+    numeric_tid = transaction_id
 
     data = {
         "reference_number": reference_number,
@@ -96,16 +123,43 @@ async def osp_commit(reference_number: str, session_id: str, transaction_id: str
         res.raise_for_status()
         return res.json()
 
+# Commit Failed Simulation Service
+async def commt_failed(reference_number: str, session_id: str, transaction_id: str):
+    url = f"{BASE_URL}/commit-failed"
+    data = {
+        "refernce_number": reference_number,
+        "session_id": session_id,
+        "transaction_id": transaction_id,
+        "partner": "failed commit test",
+    }
+
+    logger.bind(
+        osp_log="request",
+        endpoint="osp.commit_failed",
+        url=url,
+        data=_build_param_log(data),
+    ).info("[OSP][commit_failed] → POST")
+
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        res = await client.post(url, data=data, headers=HEADERS)
+        logger.bind(
+                osp_log="response",
+                endpoint="osp.commit_failed",
+                url=url,
+                status_code=res.status_code,
+        ).error(f"[OSP][commit_failed][FAIL] {res.text}")
+        res.raise_for_status()
+        return res.json()
+
 
 # 3️ Confirm Payment
 async def osp_confirm(reference_number: str, transaction_id: str, acknowledgement_id: str):
     """CDC Confirm Payment — POST form-data"""
     url = f"{BASE_URL}/confirm-payment"
-    numeric_tid = transaction_id.replace("TID", "").zfill(6)
 
     data = {
         "reference_number": reference_number,
-        "transaction_id": numeric_tid,
+        "transaction_id": transaction_id,
         "acknowledgement_id": acknowledgement_id,
         "partner": settings.OSP_PARTNER,
     }
@@ -135,6 +189,33 @@ async def osp_confirm(reference_number: str, transaction_id: str, acknowledgemen
         res.raise_for_status()
         return res.json()
 
+#Confirm Failed Simulation Service
+async def confirm_failed(reference_number: str, transaction_id: str, acknowledgement_id: str):
+    url = f"{BASE_URL}/confirm-failed"
+    data = {
+        "reference_number": reference_number,
+        "transaction_id": transaction_id,
+        "acknowledgement_id": acknowledgement_id,
+        "partner": "failed confirm test",
+    }
+
+    logger.bind(
+        osp_log="request",
+        endpoint="osp.confirm_failed",
+        url=url,
+        data=_build_param_log(data),
+    ).info("[OSP][confirm_failed] → POST")
+
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        res = await client.post(url, data=data, headers=HEADERS)
+        logger.bind(
+                osp_log="response",
+                endpoint="osp.confirm_failed",
+                url=url,
+                status_code=res.status_code,
+        ).error(f"[OSP][confirm_failed][FAIL] {res.text}")
+        res.raise_for_status()
+        return res.json()
 
 # 4️ Reverse Payment
 async def osp_reverse(reference_number: str, transaction_id: str, reversal_transaction_id: str):
@@ -172,5 +253,33 @@ async def osp_reverse(reference_number: str, transaction_id: str, reversal_trans
                 url=url,
                 status_code=res.status_code,
             ).info(f"[OSP][reverse][OK] {res.text}")
+        res.raise_for_status()
+        return res.json()
+
+# Reverse Failed Simulation Service
+async def reverse_failed(reference_number: str, transaction_id: str, reversal_transaction_id: str):
+    url = f"{BASE_URL}/reverse-failed"
+    data = {
+        "reference_number": reference_number,
+        "transaction_id": transaction_id,
+        "reversal_transaction_id": reversal_transaction_id,
+        "partner": "failed reverse test",
+    }
+
+    logger.bind(
+        osp_log="request",
+        endpoint="osp.reverse_failed",
+        url=url,
+        data=_build_param_log(data),
+    ).info("[OSP][reverse_failed] → POST")
+
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        res = await client.post(url, data=data, headers=HEADERS)
+        logger.bind(
+                osp_log="response",
+                endpoint="osp.reverse_failed",
+                url=url,
+                status_code=res.status_code,
+        ).error(f"[OSP][reverse_failed][FAIL] {res.text}")
         res.raise_for_status()
         return res.json()
