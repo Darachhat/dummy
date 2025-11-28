@@ -157,6 +157,23 @@ async def start_payment(
     )
     osp_data = await osp_lookup(reference_number)
     if not osp_data or osp_data.get("response_code") != 200:
+        payment = Payment(
+            user_id=user_id,
+            account_id=account.id,
+            service_id=service.id,
+            reference_number=reference_number,
+            status="lookup-failed",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        db.add(payment)
+        db.commit()
+        db.refresh(payment)
+        _log_payment_response(
+            "payments.start.osp_lookup",
+            user_id=user_id,
+            response=osp_data,
+        )
         raise HTTPException(status_code=400, detail="Invalid invoice from OSP")
 
     # Invoice details from OSP
@@ -316,6 +333,7 @@ async def confirm_payment(
         logger.info(f"[OSP Commit Response] {commit_res}")
 
         if commit_res.get("response_code") != 200:
+            logger.error(f"[OSP Commit Error] {commit_res}")    
             raise HTTPException(status_code=400, detail="OSP commit failed")
 
         # --- Convert CDC Datetime (UTC+7 and UTC) ---

@@ -72,7 +72,7 @@ app.mount(f"/api/dmb/{API_VERSION}/static", StaticFiles(directory="static"), nam
 
 # --- DB Init ---
 # TODO: Move into Postgres, and this cause conflict on deploy
-# Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 
 # --- Run Migrations ---
